@@ -1,21 +1,72 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import magmaLogo from "@/assets/magma-logo.png";
 
-interface AuthPageProps {
-  onLogin: (username: string) => void;
-}
+const usernameToEmail = (u: string) =>
+  `${u.toLowerCase().replace(/[^a-z0-9_]/g, "")}@magmachat.local`;
 
-const AuthPage = ({ onLogin }: AuthPageProps) => {
+const AuthPage = () => {
   const [tab, setTab] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tab === "register" && password !== confirmPassword) return;
-    if (username.trim()) onLogin(username.trim());
+    if (loading) return;
+    const u = username.trim();
+    if (!u) return;
+    if (tab === "register" && password !== confirmPassword) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Contraseña mínimo 6 caracteres");
+      return;
+    }
+    setLoading(true);
+    try {
+      const email = usernameToEmail(u);
+      if (tab === "register") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: { username: u, display_name: u },
+          },
+        });
+        if (error) throw error;
+        toast.success("¡Cuenta creada! 🌋");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        toast.success("¡Bienvenido al magma! 🔥");
+      }
+      // Bootstrap support contact + (if XypherDev) self-claim admin
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await supabase.functions.invoke("admin-actions", {
+            body: { action: "bootstrap_support_for_me" },
+          });
+          if (u === "XypherDev") {
+            await supabase.functions.invoke("admin-actions", {
+              body: { action: "claim_admin" },
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("bootstrap failed", err);
+      }
+    } catch (err: any) {
+      toast.error(err.message ?? "Error de autenticación");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -26,7 +77,6 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-md"
       >
-        {/* Logo */}
         <motion.div
           className="flex flex-col items-center mb-8"
           initial={{ opacity: 0, y: -20 }}
@@ -35,11 +85,13 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
         >
           <motion.div
             className="w-24 h-24 rounded-2xl magma-gradient p-0.5 magma-glow mb-4 overflow-hidden"
-            animate={{ boxShadow: [
-              "0 0 30px hsl(24 100% 50% / 0.3), 0 0 60px hsl(24 100% 50% / 0.1)",
-              "0 0 50px hsl(24 100% 50% / 0.5), 0 0 100px hsl(24 100% 50% / 0.2)",
-              "0 0 30px hsl(24 100% 50% / 0.3), 0 0 60px hsl(24 100% 50% / 0.1)",
-            ]}}
+            animate={{
+              boxShadow: [
+                "0 0 30px hsl(24 100% 50% / 0.3), 0 0 60px hsl(24 100% 50% / 0.1)",
+                "0 0 50px hsl(24 100% 50% / 0.5), 0 0 100px hsl(24 100% 50% / 0.2)",
+                "0 0 30px hsl(24 100% 50% / 0.3), 0 0 60px hsl(24 100% 50% / 0.1)",
+              ],
+            }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
             <div className="w-full h-full rounded-2xl bg-card flex items-center justify-center overflow-hidden">
@@ -50,9 +102,7 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
           <p className="text-muted-foreground mt-1">El chat que arde 🔥</p>
         </motion.div>
 
-        {/* Card */}
         <div className="glass-panel-strong rounded-2xl p-6">
-          {/* Tab switcher */}
           <div className="flex rounded-xl bg-muted p-1 mb-6">
             {(["login", "register"] as const).map((t) => (
               <button
@@ -69,7 +119,6 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
             ))}
           </div>
 
-          {/* Form */}
           <AnimatePresence mode="wait">
             <motion.form
               key={tab}
@@ -80,26 +129,24 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
               onSubmit={handleSubmit}
               className="space-y-4"
             >
-              <div>
-                <input
-                  type="text"
-                  placeholder="Usuario"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all"
-                />
-              </div>
-              <div>
-                <input
-                  type="password"
-                  placeholder="Contraseña"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all"
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Usuario"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+                className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all"
+              />
+              <input
+                type="password"
+                placeholder="Contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete={tab === "login" ? "current-password" : "new-password"}
+                className="w-full px-4 py-3 rounded-xl bg-input border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all"
+              />
               {tab === "register" && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
@@ -119,11 +166,12 @@ const AuthPage = ({ onLogin }: AuthPageProps) => {
 
               <motion.button
                 type="submit"
+                disabled={loading}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full py-3.5 rounded-xl magma-gradient text-primary-foreground font-semibold text-lg magma-glow transition-all hover:magma-glow-intense"
+                className="w-full py-3.5 rounded-xl magma-gradient text-primary-foreground font-semibold text-lg magma-glow transition-all hover:magma-glow-intense disabled:opacity-60"
               >
-                {tab === "login" ? "Entrar al Magma →" : "Crear Cuenta 🌋"}
+                {loading ? "..." : tab === "login" ? "Entrar al Magma →" : "Crear Cuenta 🌋"}
               </motion.button>
             </motion.form>
           </AnimatePresence>
