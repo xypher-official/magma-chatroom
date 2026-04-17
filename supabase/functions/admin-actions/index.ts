@@ -21,18 +21,32 @@ async function getOrCreateSupport(admin: ReturnType<typeof createClient>) {
     .maybeSingle();
   if (existing) return existing.user_id as string;
 
-  // Create auth user
-  const { data: created, error } = await admin.auth.admin.createUser({
-    email: SUPPORT_EMAIL,
-    password: SUPPORT_PASSWORD,
-    email_confirm: true,
-    user_metadata: {
-      username: "chatroom_support",
-      display_name: "ChatRoom Support",
-    },
-  });
-  if (error) throw error;
-  const uid = created.user!.id;
+  // Try to find by email first (race-safe)
+  const { data: list } = await admin.auth.admin.listUsers();
+  const found = list?.users?.find((u) => u.email === SUPPORT_EMAIL);
+  let uid: string;
+  if (found) {
+    uid = found.id;
+  } else {
+    const { data: created, error } = await admin.auth.admin.createUser({
+      email: SUPPORT_EMAIL,
+      password: SUPPORT_PASSWORD,
+      email_confirm: true,
+      user_metadata: {
+        username: "chatroom_support",
+        display_name: "ChatRoom Support",
+      },
+    });
+    if (error) {
+      // Race: another invocation just created it — re-fetch
+      const { data: list2 } = await admin.auth.admin.listUsers();
+      const found2 = list2?.users?.find((u) => u.email === SUPPORT_EMAIL);
+      if (!found2) throw error;
+      uid = found2.id;
+    } else {
+      uid = created.user!.id;
+    }
+  }
 
   // Trigger creates profile + user role automatically. Promote.
   await admin
