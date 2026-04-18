@@ -62,6 +62,159 @@ export type Database = {
         }
         Relationships: []
       }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_messages: {
+        Row: {
+          content: string
+          created_at: string
+          group_id: string
+          id: string
+          is_system: boolean
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          group_id: string
+          id?: string
+          is_system?: boolean
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          group_id?: string
+          id?: string
+          is_system?: boolean
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          avatar_initials: string
+          created_at: string
+          description: string
+          id: string
+          last_message_at: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          avatar_initials?: string
+          created_at?: string
+          description?: string
+          id?: string
+          last_message_at?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          avatar_initials?: string
+          created_at?: string
+          description?: string
+          id?: string
+          last_message_at?: string
+          name?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
+      live_events: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          ended_at: string | null
+          id: string
+          is_active: boolean
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          ended_at?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+        }
+        Relationships: []
+      }
+      live_updates: {
+        Row: {
+          content: string
+          created_at: string
+          event_id: string
+          id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          event_id: string
+          id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_updates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "live_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -145,6 +298,60 @@ export type Database = {
         }
         Relationships: []
       }
+      site_banner: {
+        Row: {
+          color: string
+          enabled: boolean
+          id: number
+          link: string | null
+          message: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          enabled?: boolean
+          id?: number
+          link?: string | null
+          message?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          enabled?: boolean
+          id?: number
+          link?: string | null
+          message?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_sections: {
+        Row: {
+          content: string
+          enabled: boolean
+          id: string
+          key: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          enabled?: boolean
+          id?: string
+          key: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          enabled?: boolean
+          id?: string
+          key?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -177,6 +384,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group: string; _user: string }
         Returns: boolean
       }
     }
