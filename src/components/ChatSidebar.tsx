@@ -25,11 +25,13 @@ interface ChatSidebarProps {
   isAdmin?: boolean;
   isVerified?: boolean;
   onOpenAdmin?: () => void;
+  onNewChat?: () => void;
+  onOpenSettings?: () => void;
 }
 
 const ChatSidebar = ({
   contacts, activeContact, onSelectContact, onLogout, currentUser,
-  isAdmin, isVerified, onOpenAdmin,
+  isAdmin, isVerified, onOpenAdmin, onNewChat, onOpenSettings,
 }: ChatSidebarProps) => {
   const [q, setQ] = useState("");
   const filtered = contacts.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()));
@@ -59,10 +61,10 @@ const ChatSidebar = ({
               <Shield size={18} />
             </motion.button>
           )}
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onNewChat} title="Nuevo chat" className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <Plus size={18} />
           </motion.button>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onOpenSettings} title="Ajustes" className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
             <Settings size={18} />
           </motion.button>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onLogout} className="p-2 rounded-lg hover:bg-destructive/20 transition-colors text-muted-foreground hover:text-destructive">
