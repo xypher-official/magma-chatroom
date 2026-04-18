@@ -4,30 +4,27 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import LavaParticles from "@/components/LavaParticles";
 import AuthPage from "@/components/AuthPage";
-import ChatSidebar, { type ContactRow } from "@/components/ChatSidebar";
+import ChatSidebar, { type ContactRow, type GroupRow } from "@/components/ChatSidebar";
 import ChatWindow, { type MessageRow } from "@/components/ChatWindow";
 import EmptyChat from "@/components/EmptyChat";
 import AdminPanel from "@/components/AdminPanel";
 import NewChatDialog from "@/components/NewChatDialog";
+import NewGroupDialog from "@/components/NewGroupDialog";
 import SettingsDialog from "@/components/SettingsDialog";
+import GroupChatWindow from "@/components/GroupChatWindow";
+import SiteBanner from "@/components/SiteBanner";
+import LiveEventBar from "@/components/LiveEventBar";
 import { toast } from "sonner";
 
 interface Profile {
-  user_id: string;
-  username: string;
-  display_name: string;
-  avatar_initials: string;
-  is_verified: boolean;
-  is_banned: boolean;
-  is_official: boolean;
-  allow_dms?: boolean;
+  user_id: string; username: string; display_name: string; avatar_initials: string;
+  is_verified: boolean; is_banned: boolean; is_official: boolean; allow_dms?: boolean;
 }
+interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; owner_id: string; last_message_at: string }
 
 const formatTime = (iso: string) => {
-  const d = new Date(iso);
-  const now = new Date();
-  if (d.toDateString() === now.toDateString())
-    return d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso); const now = new Date();
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
   const diffDays = Math.floor((+now - +d) / 86400000);
   if (diffDays < 7) return d.toLocaleDateString("es", { weekday: "short" });
   return d.toLocaleDateString("es", { day: "2-digit", month: "2-digit" });
@@ -38,33 +35,30 @@ const Index = () => {
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
-  const [conversations, setConversations] = useState<
-    { id: string; user_a: string; user_b: string; last_message_at: string }[]
-  >([]);
+  const [conversations, setConversations] = useState<{ id: string; user_a: string; user_b: string; last_message_at: string }[]>([]);
   const [messagesByConv, setMessagesByConv] = useState<Record<string, MessageRow[]>>({});
+  const [groups, setGroups] = useState<GroupInfo[]>([]);
+  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
   const [activeConv, setActiveConv] = useState<string | null>(null);
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showNewGroup, setShowNewGroup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const bootstrappedRef = useRef(false);
 
-  // Auth listener
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Bootstrap on login: ensure support contact exists for me
   useEffect(() => {
     if (!session || bootstrappedRef.current) return;
     bootstrappedRef.current = true;
-    supabase.functions
-      .invoke("admin-actions", { body: { action: "bootstrap_support_for_me" } })
-      .catch(() => {});
+    supabase.functions.invoke("admin-actions", { body: { action: "bootstrap_support_for_me" } }).catch(() => {});
   }, [session]);
 
-  // Load my profile + role
   const loadMe = useCallback(async () => {
     if (!session) return;
     const [{ data: p }, { data: roles }] = await Promise.all([
@@ -74,10 +68,8 @@ const Index = () => {
     if (p) setMyProfile(p as Profile);
     setIsAdmin((roles ?? []).some((r: any) => r.role === "admin"));
   }, [session]);
-
   useEffect(() => { loadMe(); }, [loadMe]);
 
-  // Load all profiles (for displaying contact info; RLS allows SELECT all)
   const loadProfiles = useCallback(async () => {
     const { data } = await supabase.from("profiles").select("*");
     if (data) {
@@ -87,26 +79,36 @@ const Index = () => {
     }
   }, []);
 
-  // Load my conversations
   const loadConversations = useCallback(async () => {
     if (!session) return;
-    const { data } = await supabase
-      .from("conversations")
-      .select("*")
+    const { data } = await supabase.from("conversations").select("*")
       .or(`user_a.eq.${session.user.id},user_b.eq.${session.user.id}`)
       .order("last_message_at", { ascending: false });
     if (data) setConversations(data as any);
   }, [session]);
 
-  useEffect(() => { loadProfiles(); loadConversations(); }, [loadProfiles, loadConversations, session]);
+  const loadGroups = useCallback(async () => {
+    if (!session) return;
+    const { data } = await supabase.from("groups").select("*").order("last_message_at", { ascending: false });
+    setGroups((data as GroupInfo[]) ?? []);
+    if (data && data.length) {
+      const ids = (data as GroupInfo[]).map((g) => g.id);
+      const { data: members } = await supabase.from("group_members").select("group_id").in("group_id", ids);
+      const counts: Record<string, number> = {};
+      for (const m of members ?? []) counts[(m as any).group_id] = (counts[(m as any).group_id] ?? 0) + 1;
+      setGroupCounts(counts);
+    } else { setGroupCounts({}); }
+  }, [session]);
 
-  // Realtime: profiles, conversations, messages
+  useEffect(() => { loadProfiles(); loadConversations(); loadGroups(); }, [loadProfiles, loadConversations, loadGroups, session]);
+
   useEffect(() => {
     if (!session) return;
-    const ch = supabase
-      .channel("magma-rt")
+    const ch = supabase.channel("magma-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => loadProfiles())
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => loadConversations())
+      .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => loadGroups())
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => loadGroups())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
         const m = payload.new as MessageRow;
         setMessagesByConv((prev) => {
@@ -118,82 +120,61 @@ const Index = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [session, loadProfiles, loadConversations]);
+  }, [session, loadProfiles, loadConversations, loadGroups]);
 
-  // Load messages for active conversation
   useEffect(() => {
     if (!activeConv) return;
-    supabase
-      .from("messages")
-      .select("*")
-      .eq("conversation_id", activeConv)
-      .order("created_at", { ascending: true })
-      .then(({ data }) => {
-        if (data) setMessagesByConv((prev) => ({ ...prev, [activeConv]: data as MessageRow[] }));
-      });
+    supabase.from("messages").select("*").eq("conversation_id", activeConv).order("created_at", { ascending: true })
+      .then(({ data }) => { if (data) setMessagesByConv((prev) => ({ ...prev, [activeConv]: data as MessageRow[] })); });
   }, [activeConv]);
 
   const contacts: ContactRow[] = useMemo(() => {
     if (!session) return [];
-    return conversations
-      .map((c) => {
-        const otherId = c.user_a === session.user.id ? c.user_b : c.user_a;
-        const p = profiles[otherId];
-        if (!p) return null;
-        const lastMsgs = messagesByConv[c.id] ?? [];
-        const last = lastMsgs[lastMsgs.length - 1];
-        return {
-          id: c.id,
-          otherUserId: otherId,
-          name: p.display_name,
-          avatar: p.avatar_initials,
-          isVerified: p.is_verified,
-          isOfficial: p.is_official,
-          lastMessage: last?.content ?? "Inicia la conversación",
-          time: formatTime(c.last_message_at),
-          online: true,
-        } as ContactRow;
-      })
-      .filter(Boolean) as ContactRow[];
+    return conversations.map((c) => {
+      const otherId = c.user_a === session.user.id ? c.user_b : c.user_a;
+      const p = profiles[otherId]; if (!p) return null;
+      const lastMsgs = messagesByConv[c.id] ?? [];
+      const last = lastMsgs[lastMsgs.length - 1];
+      return {
+        id: c.id, otherUserId: otherId, name: p.display_name, avatar: p.avatar_initials,
+        isVerified: p.is_verified, isOfficial: p.is_official,
+        lastMessage: last?.content ?? "Inicia la conversación",
+        time: formatTime(c.last_message_at), online: true,
+      } as ContactRow;
+    }).filter(Boolean) as ContactRow[];
   }, [conversations, profiles, session, messagesByConv]);
+
+  const groupRows: GroupRow[] = useMemo(() => groups.map((g) => ({
+    id: g.id, name: g.name, avatar: g.avatar_initials,
+    lastMessage: g.description || "Grupo nuevo",
+    time: formatTime(g.last_message_at), memberCount: groupCounts[g.id] ?? 0,
+  })), [groups, groupCounts]);
 
   const activeConvData = activeConv ? conversations.find((c) => c.id === activeConv) : null;
   const otherProfile = activeConvData && session
     ? profiles[activeConvData.user_a === session.user.id ? activeConvData.user_b : activeConvData.user_a]
     : null;
   const isSupportConv = !!otherProfile?.is_official;
+  const activeGroupData = activeGroup ? groups.find((g) => g.id === activeGroup) : null;
 
-  const handleSendMessage = useCallback(
-    async (text: string) => {
-      if (!activeConv || !session) return;
-      const { error } = await supabase.from("messages").insert({
-        conversation_id: activeConv,
-        sender_id: session.user.id,
-        content: text,
-      });
-      if (error) {
-        toast.error(error.message.includes("conversation_has_official")
-          ? "ChatRoom Support es solo lectura 🔒"
-          : error.message);
-      } else {
-        await supabase
-          .from("conversations")
-          .update({ last_message_at: new Date().toISOString() })
-          .eq("id", activeConv);
-      }
-    },
-    [activeConv, session],
-  );
+  const handleSendMessage = useCallback(async (text: string) => {
+    if (!activeConv || !session) return;
+    const { error } = await supabase.from("messages")
+      .insert({ conversation_id: activeConv, sender_id: session.user.id, content: text });
+    if (error) {
+      toast.error(error.message.includes("conversation_has_official") ? "ChatRoom Support es solo lectura 🔒" : error.message);
+    } else {
+      await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", activeConv);
+    }
+  }, [activeConv, session]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setMyProfile(null);
-    setIsAdmin(false);
-    setActiveConv(null);
-    setConversations([]);
-    setMessagesByConv({});
-    bootstrappedRef.current = false;
+    setMyProfile(null); setIsAdmin(false); setActiveConv(null); setActiveGroup(null);
+    setConversations([]); setMessagesByConv({}); setGroups([]); bootstrappedRef.current = false;
   };
+
+  const showRightPane = activeConv || activeGroup;
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -204,70 +185,60 @@ const Index = () => {
             <AuthPage />
           </motion.div>
         ) : (
-          <motion.div
-            key="chat"
-            initial={{ opacity: 0, scale: 1.02 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="relative z-10 h-screen flex"
-          >
-            <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 ${activeConv ? "hidden md:block" : "block"}`}>
-              <ChatSidebar
-                contacts={contacts}
-                activeContact={activeConv}
-                onSelectContact={setActiveConv}
-                onLogout={handleLogout}
-                currentUser={myProfile?.display_name ?? session.user.email ?? ""}
-                isAdmin={isAdmin}
-                isVerified={!!myProfile?.is_verified}
-                onOpenAdmin={() => setShowAdmin(true)}
-                onNewChat={() => setShowNewChat(true)}
-                onOpenSettings={() => setShowSettings(true)}
-              />
-            </div>
-            <div className={`flex-1 ${!activeConv ? "hidden md:block" : "block"}`}>
-              {otherProfile ? (
-                <ChatWindow
-                  contactName={otherProfile.display_name}
-                  contactAvatar={otherProfile.avatar_initials}
-                  contactOnline={true}
-                  contactIsVerified={otherProfile.is_verified}
-                  contactIsOfficial={otherProfile.is_official}
-                  messages={messagesByConv[activeConv!] ?? []}
-                  myUserId={session.user.id}
-                  profiles={profiles}
-                  readOnly={isSupportConv && !isAdmin}
-                  onSendMessage={handleSendMessage}
-                  onBack={() => setActiveConv(null)}
+          <motion.div key="chat" initial={{ opacity: 0, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }} className="relative z-10 h-screen flex flex-col">
+            <SiteBanner />
+            <LiveEventBar />
+            <div className="flex-1 flex min-h-0">
+              <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 ${showRightPane ? "hidden md:block" : "block"}`}>
+                <ChatSidebar
+                  contacts={contacts} groups={groupRows}
+                  activeContact={activeConv} activeGroup={activeGroup}
+                  onSelectContact={(id) => { setActiveGroup(null); setActiveConv(id); }}
+                  onSelectGroup={(id) => { setActiveConv(null); setActiveGroup(id); }}
+                  onLogout={handleLogout}
+                  currentUser={myProfile?.display_name ?? session.user.email ?? ""}
+                  isAdmin={isAdmin} isVerified={!!myProfile?.is_verified}
+                  onOpenAdmin={() => setShowAdmin(true)}
+                  onNewChat={() => setShowNewChat(true)}
+                  onNewGroup={() => setShowNewGroup(true)}
+                  onOpenSettings={() => setShowSettings(true)}
                 />
-              ) : (
-                <EmptyChat />
-              )}
+              </div>
+              <div className={`flex-1 ${!showRightPane ? "hidden md:block" : "block"}`}>
+                {activeGroupData && session ? (
+                  <GroupChatWindow group={activeGroupData} myUserId={session.user.id} isAdmin={isAdmin}
+                    profiles={profiles} onBack={() => setActiveGroup(null)}
+                    onDeleted={() => { setActiveGroup(null); loadGroups(); }} />
+                ) : otherProfile ? (
+                  <ChatWindow contactName={otherProfile.display_name} contactAvatar={otherProfile.avatar_initials}
+                    contactOnline={true} contactIsVerified={otherProfile.is_verified} contactIsOfficial={otherProfile.is_official}
+                    messages={messagesByConv[activeConv!] ?? []} myUserId={session.user.id} profiles={profiles}
+                    readOnly={isSupportConv && !isAdmin} onSendMessage={handleSendMessage}
+                    onBack={() => setActiveConv(null)} />
+                ) : (
+                  <EmptyChat />
+                )}
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {showAdmin && isAdmin && (
-        <AdminPanel onClose={() => setShowAdmin(false)} profiles={Object.values(profiles)} />
-      )}
+      {showAdmin && isAdmin && <AdminPanel onClose={() => setShowAdmin(false)} profiles={Object.values(profiles)} />}
       {showNewChat && session && (
-        <NewChatDialog
-          onClose={() => setShowNewChat(false)}
-          onCreated={(id) => { setShowNewChat(false); setActiveConv(id); loadConversations(); }}
-          myUserId={session.user.id}
-          profiles={Object.values(profiles)}
-          existingConversations={conversations}
-        />
+        <NewChatDialog onClose={() => setShowNewChat(false)}
+          onCreated={(id) => { setShowNewChat(false); setActiveGroup(null); setActiveConv(id); loadConversations(); }}
+          myUserId={session.user.id} profiles={Object.values(profiles)} existingConversations={conversations} />
+      )}
+      {showNewGroup && session && (
+        <NewGroupDialog onClose={() => setShowNewGroup(false)}
+          onCreated={(id) => { setShowNewGroup(false); setActiveConv(null); setActiveGroup(id); loadGroups(); }}
+          myUserId={session.user.id} profiles={Object.values(profiles)} />
       )}
       {showSettings && session && myProfile && (
-        <SettingsDialog
-          onClose={() => setShowSettings(false)}
-          myUserId={session.user.id}
-          displayName={myProfile.display_name}
-          allowDms={myProfile.allow_dms ?? true}
-          onUpdated={loadMe}
-        />
+        <SettingsDialog onClose={() => setShowSettings(false)} myUserId={session.user.id}
+          displayName={myProfile.display_name} allowDms={myProfile.allow_dms ?? true} onUpdated={loadMe} />
       )}
     </div>
   );
