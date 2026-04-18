@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Send, Megaphone, Users, BarChart3, ShieldCheck, Ban, Trash2, Crown, MessageSquare,
+  X, Send, Megaphone, Users, BarChart3, ShieldCheck, Ban, Trash2, Crown, MessageSquare, Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
+import AdminAIConsole from "./AdminAIConsole";
 
 interface Profile {
   user_id: string;
@@ -22,10 +23,10 @@ interface AdminPanelProps {
   profiles: Profile[];
 }
 
-type Tab = "broadcast" | "users" | "stats";
+type Tab = "ai" | "broadcast" | "users" | "stats";
 
 const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
-  const [tab, setTab] = useState<Tab>("broadcast");
+  const [tab, setTab] = useState<Tab>("ai");
   const [broadcast, setBroadcast] = useState("");
   const [dmTarget, setDmTarget] = useState<string>("");
   const [dmText, setDmText] = useState("");
@@ -128,6 +129,7 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
 
           <div className="flex border-b border-border bg-muted/30">
             {([
+              ["ai", "IA", Sparkles],
               ["broadcast", "Mensajes", Megaphone],
               ["users", "Usuarios", Users],
               ["stats", "Estadísticas", BarChart3],
@@ -147,6 +149,7 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
           </div>
 
           <div className="flex-1 overflow-y-auto scrollbar-magma p-6">
+            {tab === "ai" && <AdminAIConsole />}
             {tab === "broadcast" && (
               <div className="space-y-6">
                 <section>

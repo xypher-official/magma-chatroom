@@ -8,6 +8,8 @@ import ChatSidebar, { type ContactRow } from "@/components/ChatSidebar";
 import ChatWindow, { type MessageRow } from "@/components/ChatWindow";
 import EmptyChat from "@/components/EmptyChat";
 import AdminPanel from "@/components/AdminPanel";
+import NewChatDialog from "@/components/NewChatDialog";
+import SettingsDialog from "@/components/SettingsDialog";
 import { toast } from "sonner";
 
 interface Profile {
@@ -18,6 +20,7 @@ interface Profile {
   is_verified: boolean;
   is_banned: boolean;
   is_official: boolean;
+  allow_dms?: boolean;
 }
 
 const formatTime = (iso: string) => {
@@ -41,6 +44,8 @@ const Index = () => {
   const [messagesByConv, setMessagesByConv] = useState<Record<string, MessageRow[]>>({});
   const [activeConv, setActiveConv] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const bootstrappedRef = useRef(false);
 
   // Auth listener
@@ -216,6 +221,8 @@ const Index = () => {
                 isAdmin={isAdmin}
                 isVerified={!!myProfile?.is_verified}
                 onOpenAdmin={() => setShowAdmin(true)}
+                onNewChat={() => setShowNewChat(true)}
+                onOpenSettings={() => setShowSettings(true)}
               />
             </div>
             <div className={`flex-1 ${!activeConv ? "hidden md:block" : "block"}`}>
@@ -243,6 +250,24 @@ const Index = () => {
 
       {showAdmin && isAdmin && (
         <AdminPanel onClose={() => setShowAdmin(false)} profiles={Object.values(profiles)} />
+      )}
+      {showNewChat && session && (
+        <NewChatDialog
+          onClose={() => setShowNewChat(false)}
+          onCreated={(id) => { setShowNewChat(false); setActiveConv(id); loadConversations(); }}
+          myUserId={session.user.id}
+          profiles={Object.values(profiles)}
+          existingConversations={conversations}
+        />
+      )}
+      {showSettings && session && myProfile && (
+        <SettingsDialog
+          onClose={() => setShowSettings(false)}
+          myUserId={session.user.id}
+          displayName={myProfile.display_name}
+          allowDms={myProfile.allow_dms ?? true}
+          onUpdated={loadMe}
+        />
       )}
     </div>
   );

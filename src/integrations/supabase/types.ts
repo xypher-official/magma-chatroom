@@ -102,6 +102,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          allow_dms: boolean
           avatar_initials: string
           created_at: string
           display_name: string
@@ -115,6 +116,7 @@ export type Database = {
           username: string
         }
         Insert: {
+          allow_dms?: boolean
           avatar_initials?: string
           created_at?: string
           display_name: string
@@ -128,6 +130,7 @@ export type Database = {
           username: string
         }
         Update: {
+          allow_dms?: boolean
           avatar_initials?: string
           created_at?: string
           display_name?: string
