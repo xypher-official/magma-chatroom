@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Send, Megaphone, Users, BarChart3, ShieldCheck, Ban, Trash2, Crown, MessageSquare, Sparkles, FileText, Radio,
+  X, Send, Megaphone, Users, BarChart3, ShieldCheck, Ban, Trash2, Crown, MessageSquare, Sparkles, FileText, Radio, Palette,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import Badges from "./Badges";
 import AdminAIConsole from "./AdminAIConsole";
 import CmsTab from "./CmsTab";
 import EventsTab from "./EventsTab";
+import UiTab from "./UiTab";
 
 interface Profile {
   user_id: string;
@@ -25,7 +26,7 @@ interface AdminPanelProps {
   profiles: Profile[];
 }
 
-type Tab = "ai" | "broadcast" | "users" | "stats" | "cms" | "events";
+type Tab = "ai" | "broadcast" | "users" | "stats" | "cms" | "events" | "ui";
 
 const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
   const [tab, setTab] = useState<Tab>("ai");
@@ -135,6 +136,7 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
               ["broadcast", "Mensajes", Megaphone],
               ["users", "Usuarios", Users],
               ["cms", "Sitio", FileText],
+              ["ui", "UI", Palette],
               ["events", "En vivo", Radio],
               ["stats", "Stats", BarChart3],
             ] as const).map(([key, label, Icon]) => (
@@ -155,6 +157,7 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
           <div className="flex-1 overflow-y-auto scrollbar-magma p-6">
             {tab === "ai" && <AdminAIConsole />}
             {tab === "cms" && <CmsTab />}
+            {tab === "ui" && <UiTab />}
             {tab === "events" && <EventsTab />}
             {tab === "broadcast" && (
               <div className="space-y-6">

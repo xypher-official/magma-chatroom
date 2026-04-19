@@ -14,6 +14,7 @@ import SettingsDialog from "@/components/SettingsDialog";
 import GroupChatWindow from "@/components/GroupChatWindow";
 import SiteBanner from "@/components/SiteBanner";
 import LiveEventBar from "@/components/LiveEventBar";
+import SitePagesMenu from "@/components/SitePagesMenu";
 import { toast } from "sonner";
 
 interface Profile {
@@ -187,6 +188,7 @@ const Index = () => {
         ) : (
           <motion.div key="chat" initial={{ opacity: 0, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }} className="relative z-10 h-screen flex flex-col">
+            <SitePagesMenu isAdmin={isAdmin} onEditCms={() => setShowAdmin(true)} />
             <SiteBanner />
             <LiveEventBar />
             <div className="flex-1 flex min-h-0">
