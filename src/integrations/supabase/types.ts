@@ -325,6 +325,48 @@ export type Database = {
         }
         Relationships: []
       }
+      site_pages: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          emoji: string
+          enabled: boolean
+          icon: string
+          id: string
+          position: number
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          emoji?: string
+          enabled?: boolean
+          icon?: string
+          id?: string
+          position?: number
+          slug: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          emoji?: string
+          enabled?: boolean
+          icon?: string
+          id?: string
+          position?: number
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       site_sections: {
         Row: {
           content: string
@@ -349,6 +391,27 @@ export type Database = {
           key?: string
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ui_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
         }
         Relationships: []
       }
