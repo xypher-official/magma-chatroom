@@ -3,6 +3,7 @@ import { Search, Plus, Settings, LogOut, Shield, MessageCircle, Users } from "lu
 import magmaLogo from "@/assets/magma-logo.png";
 import Badges from "./Badges";
 import { useState } from "react";
+import { useUiSettings } from "@/hooks/useUiSettings";
 
 export interface ContactRow {
   id: string;
@@ -46,6 +47,7 @@ const ChatSidebar = ({
   contacts, groups, activeContact, activeGroup, onSelectContact, onSelectGroup,
   onLogout, currentUser, isAdmin, isVerified, onOpenAdmin, onNewChat, onNewGroup, onOpenSettings,
 }: ChatSidebarProps) => {
+  const { t } = useUiSettings();
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"chats" | "groups">("chats");
   const filteredContacts = contacts.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()));
@@ -57,7 +59,7 @@ const ChatSidebar = ({
         <div className="flex items-center gap-3 min-w-0">
           <img src={magmaLogo} alt="Magma" width={36} height={36} className="rounded-lg" />
           <div className="min-w-0">
-            <h2 className="font-bold text-sm magma-gradient-text">Magma Chat</h2>
+            <h2 className="font-bold text-sm magma-gradient-text">{t("app.name", "Magma Chat")}</h2>
             <p className="text-xs text-muted-foreground truncate flex items-center">
               <span className="truncate">{currentUser}</span>
               <Badges isAdmin={isAdmin} isVerified={isVerified} size={12} />
@@ -89,8 +91,8 @@ const ChatSidebar = ({
       </div>
 
       <div className="flex border-b border-border">
-        {([["chats", "Chats", MessageCircle], ["groups", "Grupos", Users]] as const).map(([key, label, Icon]) => (
-          <button key={key} onClick={() => setTab(key)}
+        {([["chats", t("tab.chats", "Chats"), MessageCircle], ["groups", t("tab.groups", "Grupos"), Users]] as const).map(([key, label, Icon]) => (
+          <button key={key} onClick={() => setTab(key as "chats" | "groups")}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all ${
               tab === key ? "text-primary border-b-2 border-primary bg-primary/5" : "text-muted-foreground hover:text-foreground"
             }`}>
@@ -103,7 +105,7 @@ const ChatSidebar = ({
         <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-muted">
           <Search size={16} className="text-muted-foreground" />
           <input type="text" value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder={tab === "chats" ? "Buscar chats..." : "Buscar grupos..."}
+            placeholder={t("placeholder.search", tab === "chats" ? "Buscar chats..." : "Buscar grupos...")}
             className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground flex-1 outline-none" />
         </div>
       </div>

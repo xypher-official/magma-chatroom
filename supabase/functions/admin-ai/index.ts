@@ -13,102 +13,38 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 const tools = [
   // --- Users ---
-  { type: "function", function: {
-    name: "find_user",
-    description: "Busca usuarios por username o display_name (parcial).",
-    parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
-  }},
-  { type: "function", function: {
-    name: "delete_user",
-    description: "Elimina permanentemente la cuenta de un usuario.",
-    parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] },
-  }},
-  { type: "function", function: {
-    name: "set_verified",
-    description: "Otorga o quita la palomita azul a un usuario.",
-    parameters: { type: "object", properties: { user_id: { type: "string" }, value: { type: "boolean" } }, required: ["user_id", "value"] },
-  }},
-  { type: "function", function: {
-    name: "set_banned",
-    description: "Banea o desbanea a un usuario.",
-    parameters: { type: "object", properties: { user_id: { type: "string" }, value: { type: "boolean" } }, required: ["user_id", "value"] },
-  }},
-  { type: "function", function: {
-    name: "set_admin",
-    description: "Asigna o revoca el rol de administrador.",
-    parameters: { type: "object", properties: { user_id: { type: "string" }, value: { type: "boolean" } }, required: ["user_id", "value"] },
-  }},
+  { type: "function", function: { name: "find_user", description: "Busca usuarios por username o display_name (parcial).", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
+  { type: "function", function: { name: "delete_user", description: "Elimina permanentemente la cuenta de un usuario.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "set_verified", description: "Otorga o quita la palomita azul.", parameters: { type: "object", properties: { user_id: { type: "string" }, value: { type: "boolean" } }, required: ["user_id", "value"] } } },
+  { type: "function", function: { name: "set_banned", description: "Banea o desbanea.", parameters: { type: "object", properties: { user_id: { type: "string" }, value: { type: "boolean" } }, required: ["user_id", "value"] } } },
+  { type: "function", function: { name: "set_admin", description: "Asigna o revoca rol admin.", parameters: { type: "object", properties: { user_id: { type: "string" }, value: { type: "boolean" } }, required: ["user_id", "value"] } } },
   // --- Messaging ---
-  { type: "function", function: {
-    name: "broadcast",
-    description: "Envía un mensaje desde ChatRoom Support a TODOS los usuarios.",
-    parameters: { type: "object", properties: { content: { type: "string" } }, required: ["content"] },
-  }},
-  { type: "function", function: {
-    name: "dm_as_support",
-    description: "Envía un mensaje privado desde ChatRoom Support a un usuario.",
-    parameters: { type: "object", properties: { user_id: { type: "string" }, content: { type: "string" } }, required: ["user_id", "content"] },
-  }},
+  { type: "function", function: { name: "broadcast", description: "Manda mensaje a TODOS desde ChatRoom Support.", parameters: { type: "object", properties: { content: { type: "string" } }, required: ["content"] } } },
+  { type: "function", function: { name: "dm_as_support", description: "DM desde ChatRoom Support a un usuario.", parameters: { type: "object", properties: { user_id: { type: "string" }, content: { type: "string" } }, required: ["user_id", "content"] } } },
   // --- Stats ---
-  { type: "function", function: {
-    name: "stats",
-    description: "Estadísticas globales: usuarios, mensajes, conversaciones, broadcasts, grupos, eventos.",
-    parameters: { type: "object", properties: {} },
-  }},
+  { type: "function", function: { name: "stats", description: "Estadísticas globales.", parameters: { type: "object", properties: {} } } },
   // --- CMS / Banner ---
-  { type: "function", function: {
-    name: "set_banner",
-    description: "Configura el banner global del sitio. enabled=true para mostrarlo. color: 'amber'|'red'|'sky'|'emerald'|'fuchsia'.",
-    parameters: { type: "object", properties: {
-      enabled: { type: "boolean" },
-      message: { type: "string" },
-      link: { type: "string" },
-      color: { type: "string" },
-    }, required: ["enabled"] },
-  }},
-  { type: "function", function: {
-    name: "upsert_section",
-    description: "Crea o actualiza una sección del sitio (welcome, footer u otra clave).",
-    parameters: { type: "object", properties: {
-      key: { type: "string" }, title: { type: "string" }, content: { type: "string" }, enabled: { type: "boolean" },
-    }, required: ["key"] },
-  }},
-  { type: "function", function: {
-    name: "list_sections",
-    description: "Lista todas las secciones del sitio.",
-    parameters: { type: "object", properties: {} },
-  }},
-  // --- Eventos en vivo ---
-  { type: "function", function: {
-    name: "create_event",
-    description: "Crea un evento en vivo. Aparece banner LIVE para todos.",
-    parameters: { type: "object", properties: { title: { type: "string" }, description: { type: "string" } }, required: ["title"] },
-  }},
-  { type: "function", function: {
-    name: "post_event_update",
-    description: "Publica una actualización en el feed del evento activo (o uno específico).",
-    parameters: { type: "object", properties: { content: { type: "string" }, event_id: { type: "string" } }, required: ["content"] },
-  }},
-  { type: "function", function: {
-    name: "end_event",
-    description: "Termina un evento en vivo (lo desactiva).",
-    parameters: { type: "object", properties: { event_id: { type: "string" } } },
-  }},
+  { type: "function", function: { name: "set_banner", description: "Configura banner global. color: amber|red|sky|emerald|fuchsia.", parameters: { type: "object", properties: { enabled: { type: "boolean" }, message: { type: "string" }, link: { type: "string" }, color: { type: "string" } }, required: ["enabled"] } } },
+  { type: "function", function: { name: "upsert_section", description: "Crea/actualiza sección legacy del sitio.", parameters: { type: "object", properties: { key: { type: "string" }, title: { type: "string" }, content: { type: "string" }, enabled: { type: "boolean" } }, required: ["key"] } } },
+  { type: "function", function: { name: "list_sections", description: "Lista secciones legacy.", parameters: { type: "object", properties: {} } } },
+  // --- Eventos ---
+  { type: "function", function: { name: "create_event", description: "Crea evento en vivo.", parameters: { type: "object", properties: { title: { type: "string" }, description: { type: "string" } }, required: ["title"] } } },
+  { type: "function", function: { name: "post_event_update", description: "Publica update en evento.", parameters: { type: "object", properties: { content: { type: "string" }, event_id: { type: "string" } }, required: ["content"] } } },
+  { type: "function", function: { name: "end_event", description: "Termina evento.", parameters: { type: "object", properties: { event_id: { type: "string" } } } } },
   // --- Grupos ---
-  { type: "function", function: {
-    name: "create_group",
-    description: "Crea un grupo oficial. El admin queda como dueño y puede agregar miembros por usernames.",
-    parameters: { type: "object", properties: {
-      name: { type: "string" },
-      description: { type: "string" },
-      member_usernames: { type: "array", items: { type: "string" } },
-    }, required: ["name"] },
-  }},
-  { type: "function", function: {
-    name: "delete_group",
-    description: "Elimina un grupo por id.",
-    parameters: { type: "object", properties: { group_id: { type: "string" } }, required: ["group_id"] },
-  }},
+  { type: "function", function: { name: "create_group", description: "Crea grupo oficial.", parameters: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, member_usernames: { type: "array", items: { type: "string" } } }, required: ["name"] } } },
+  { type: "function", function: { name: "delete_group", description: "Elimina grupo.", parameters: { type: "object", properties: { group_id: { type: "string" } }, required: ["group_id"] } } },
+  // --- UI Settings (NEW) ---
+  { type: "function", function: { name: "set_ui_setting", description: "Cambia un texto UI, placeholder, label o cualquier token. Claves comunes: app.name, tab.chats, tab.groups, placeholder.message, placeholder.search.", parameters: { type: "object", properties: { key: { type: "string" }, value: { type: "string" } }, required: ["key", "value"] } } },
+  { type: "function", function: { name: "list_ui_settings", description: "Lista todos los tokens UI actuales.", parameters: { type: "object", properties: {} } } },
+  { type: "function", function: { name: "delete_ui_setting", description: "Elimina un token UI.", parameters: { type: "object", properties: { key: { type: "string" } }, required: ["key"] } } },
+  { type: "function", function: { name: "set_theme", description: "Cambia colores del tema. Usa formato HSL: 'H S% L%' (ej. '24 100% 50%' para naranja magma).", parameters: { type: "object", properties: { primary: { type: "string" }, accent: { type: "string" } } } } },
+  // --- Site Pages (NEW) ---
+  { type: "function", function: { name: "create_page", description: "Crea una página/sección visible en el menú ☰. Soporta markdown + HTML básico (h1-h3, p, ul, a, img, strong, em). icon es un nombre de ícono lucide-react (ej. 'Flame', 'Crown', 'Users', 'Sparkles').", parameters: { type: "object", properties: { slug: { type: "string" }, title: { type: "string" }, content: { type: "string" }, emoji: { type: "string" }, icon: { type: "string" }, enabled: { type: "boolean" } }, required: ["slug", "title"] } } },
+  { type: "function", function: { name: "update_page", description: "Actualiza una página por slug.", parameters: { type: "object", properties: { slug: { type: "string" }, title: { type: "string" }, content: { type: "string" }, emoji: { type: "string" }, icon: { type: "string" }, enabled: { type: "boolean" } }, required: ["slug"] } } },
+  { type: "function", function: { name: "delete_page", description: "Elimina página por slug.", parameters: { type: "object", properties: { slug: { type: "string" } }, required: ["slug"] } } },
+  { type: "function", function: { name: "list_pages", description: "Lista todas las páginas del menú.", parameters: { type: "object", properties: {} } } },
+  { type: "function", function: { name: "suggest_emoji_icon", description: "Sugiere un emoji y un ícono lucide para un concepto. Devuelve {emoji, icon}.", parameters: { type: "object", properties: { concept: { type: "string" } }, required: ["concept"] } } },
 ];
 
 async function getOrCreateSupport(admin: ReturnType<typeof createClient>) {
@@ -141,26 +77,16 @@ async function ensureConversation(admin: ReturnType<typeof createClient>, a: str
 async function executeTool(name: string, args: any, admin: ReturnType<typeof createClient>, adminUserId: string) {
   if (name === "find_user") {
     const q = String(args.query ?? "").trim();
-    const { data } = await admin.from("profiles")
-      .select("user_id, username, display_name, is_verified, is_banned, is_official")
+    const { data } = await admin.from("profiles").select("user_id, username, display_name, is_verified, is_banned, is_official")
       .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).limit(5);
     return { results: data ?? [] };
   }
   if (name === "delete_user") { await admin.auth.admin.deleteUser(args.user_id); return { ok: true }; }
-  if (name === "set_verified") {
-    await admin.from("profiles").update({ is_verified: !!args.value }).eq("user_id", args.user_id);
-    return { ok: true };
-  }
-  if (name === "set_banned") {
-    await admin.from("profiles").update({ is_banned: !!args.value }).eq("user_id", args.user_id);
-    return { ok: true };
-  }
+  if (name === "set_verified") { await admin.from("profiles").update({ is_verified: !!args.value }).eq("user_id", args.user_id); return { ok: true }; }
+  if (name === "set_banned") { await admin.from("profiles").update({ is_banned: !!args.value }).eq("user_id", args.user_id); return { ok: true }; }
   if (name === "set_admin") {
-    if (args.value) {
-      await admin.from("user_roles").upsert({ user_id: args.user_id, role: "admin" }, { onConflict: "user_id,role" });
-    } else {
-      await admin.from("user_roles").delete().eq("user_id", args.user_id).eq("role", "admin");
-    }
+    if (args.value) await admin.from("user_roles").upsert({ user_id: args.user_id, role: "admin" }, { onConflict: "user_id,role" });
+    else await admin.from("user_roles").delete().eq("user_id", args.user_id).eq("role", "admin");
     return { ok: true };
   }
   if (name === "broadcast") {
@@ -216,9 +142,7 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
     return { sections: data ?? [] };
   }
   if (name === "create_event") {
-    const { data } = await admin.from("live_events").insert({
-      title: args.title, description: args.description ?? "", created_by: adminUserId, is_active: true,
-    }).select("id").single();
+    const { data } = await admin.from("live_events").insert({ title: args.title, description: args.description ?? "", created_by: adminUserId, is_active: true }).select("id").single();
     return { ok: true, event_id: data?.id };
   }
   if (name === "post_event_update") {
@@ -252,15 +176,59 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
     let added = 1;
     for (const uname of args.member_usernames ?? []) {
       const { data: p } = await admin.from("profiles").select("user_id").eq("username", uname).maybeSingle();
-      if (p) {
-        await admin.from("group_members").insert({ group_id: g.id, user_id: p.user_id }).then(() => { added++; }, () => {});
-      }
+      if (p) await admin.from("group_members").insert({ group_id: g.id, user_id: p.user_id }).then(() => { added++; }, () => {});
     }
     return { ok: true, group_id: g.id, members: added };
   }
-  if (name === "delete_group") {
-    await admin.from("groups").delete().eq("id", args.group_id);
+  if (name === "delete_group") { await admin.from("groups").delete().eq("id", args.group_id); return { ok: true }; }
+
+  // --- UI settings ---
+  if (name === "set_ui_setting") {
+    await admin.from("ui_settings").upsert({ key: args.key, value: String(args.value ?? ""), updated_at: new Date().toISOString() }, { onConflict: "key" });
     return { ok: true };
+  }
+  if (name === "list_ui_settings") {
+    const { data } = await admin.from("ui_settings").select("key,value").order("key");
+    return { settings: data ?? [] };
+  }
+  if (name === "delete_ui_setting") {
+    await admin.from("ui_settings").delete().eq("key", args.key);
+    return { ok: true };
+  }
+  if (name === "set_theme") {
+    const ops: Promise<any>[] = [];
+    if (args.primary) ops.push(admin.from("ui_settings").upsert({ key: "theme.primary", value: String(args.primary) }, { onConflict: "key" }));
+    if (args.accent) ops.push(admin.from("ui_settings").upsert({ key: "theme.accent", value: String(args.accent) }, { onConflict: "key" }));
+    await Promise.all(ops);
+    return { ok: true };
+  }
+
+  // --- Pages ---
+  if (name === "create_page") {
+    const payload: any = {
+      slug: args.slug, title: args.title ?? args.slug, content: args.content ?? "",
+      emoji: args.emoji ?? "📄", icon: args.icon ?? "FileText",
+      enabled: args.enabled ?? true, created_by: adminUserId,
+    };
+    const { error } = await admin.from("site_pages").upsert(payload, { onConflict: "slug" });
+    if (error) return { error: error.message };
+    return { ok: true };
+  }
+  if (name === "update_page") {
+    const payload: any = { updated_at: new Date().toISOString() };
+    for (const k of ["title", "content", "emoji", "icon", "enabled"]) if (args[k] !== undefined) payload[k] = args[k];
+    const { error } = await admin.from("site_pages").update(payload).eq("slug", args.slug);
+    if (error) return { error: error.message };
+    return { ok: true };
+  }
+  if (name === "delete_page") { await admin.from("site_pages").delete().eq("slug", args.slug); return { ok: true }; }
+  if (name === "list_pages") {
+    const { data } = await admin.from("site_pages").select("slug,title,emoji,icon,enabled,position").order("position");
+    return { pages: data ?? [] };
+  }
+  if (name === "suggest_emoji_icon") {
+    // simple heuristic; LLM ya elige usualmente. Devuelve placeholder seguro.
+    return { emoji: "✨", icon: "Sparkles", note: "Usa este resultado como base; puedes elegir otro emoji/ícono." };
   }
   return { error: "unknown tool" };
 }
@@ -282,20 +250,21 @@ Deno.serve(async (req) => {
     const messages = body.messages as Array<{ role: string; content: string }>;
 
     const systemPrompt = `Eres MAGMA-AI, la consola de administración del owner XypherDev en Magma Chat Room.
-Tienes poder TOTAL: gestionas usuarios, mensajes, secciones del sitio, banner global, eventos en vivo y grupos.
+Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo, grupos, tokens UI (textos/placeholders), tema (colores HSL) y páginas del sitio (menú ☰, con markdown + HTML básico).
 Reglas:
-- Si actúas sobre un usuario por nombre, primero llama a find_user.
-- Si find_user devuelve varios resultados, pide al admin que aclare.
-- Confirma cada acción con un mensaje breve y un emoji apropiado (🔥 ✅ ⚠️ 🗑️ 👑 💬 📢 🎬 📰 👥).
+- Si actúas sobre un usuario por nombre, primero find_user; si hay varios resultados, pide aclaración.
+- Para cambiar textos UI usa set_ui_setting (ej: cambiar "Grupos" → "Chats grupales" usa key="tab.groups").
+- Para cambiar colores usa set_theme con HSL ("H S% L%").
+- Para crear secciones del menú lateral usa create_page con un slug único, emoji apropiado y nombre de ícono lucide-react válido (PascalCase: Flame, Crown, Users, Sparkles, MessageCircle, Shield, Bell, Star, Heart, Zap, BookOpen, FileText, Info, HelpCircle).
+- El contenido de páginas soporta markdown estándar y HTML básico (h1-h3, p, ul, ol, li, a, img, strong, em, blockquote, code). Aprovéchalo para crear secciones ricas.
+- Confirma cada acción con un mensaje breve y un emoji (🔥 ✅ ⚠️ 🗑️ 👑 💬 📢 🎬 📰 👥 🎨 📄).
 - Nunca actúes sobre el usuario oficial (chatroom_support).
-- Para banners: si te dicen "pon banner X", llama set_banner con enabled=true.
-- Para eventos en vivo: create_event para empezar, post_event_update para nuevas actualizaciones, end_event para terminar.
 - Sé conciso, directo, en español.`;
 
     const conv: any[] = [{ role: "system", content: systemPrompt }, ...messages];
     let finalText = "";
 
-    for (let iter = 0; iter < 8; iter++) {
+    for (let iter = 0; iter < 10; iter++) {
       const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
