@@ -15,6 +15,8 @@ import GroupChatWindow from "@/components/GroupChatWindow";
 import SiteBanner from "@/components/SiteBanner";
 import LiveEventBar from "@/components/LiveEventBar";
 import SitePagesMenu from "@/components/SitePagesMenu";
+import CallWindow from "@/components/calls/CallWindow";
+import IncomingCallToast from "@/components/calls/IncomingCallToast";
 import { toast } from "sonner";
 
 interface Profile {
@@ -46,6 +48,7 @@ const Index = () => {
   const [showNewChat, setShowNewChat] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [activeCall, setActiveCall] = useState<{ id: string; peerId: string; peerName: string; initiator: boolean; type: "audio" | "video" } | null>(null);
   const bootstrappedRef = useRef(false);
 
   useEffect(() => {
@@ -175,6 +178,17 @@ const Index = () => {
     setConversations([]); setMessagesByConv({}); setGroups([]); bootstrappedRef.current = false;
   };
 
+  const startCall = useCallback(async (type: "audio" | "video") => {
+    if (!session || !otherProfile) return;
+    if (otherProfile.is_official) { toast.error("No puedes llamar a una cuenta oficial"); return; }
+    const { data, error } = await supabase.from("calls").insert({
+      caller_id: session.user.id, callee_id: otherProfile.user_id,
+      conversation_id: activeConv, call_type: type, status: "ringing",
+    }).select("id").single();
+    if (error) { toast.error(error.message); return; }
+    setActiveCall({ id: data.id, peerId: otherProfile.user_id, peerName: otherProfile.display_name, initiator: true, type });
+  }, [session, otherProfile, activeConv]);
+
   const showRightPane = activeConv || activeGroup;
 
   return (
@@ -217,7 +231,7 @@ const Index = () => {
                     contactOnline={true} contactIsVerified={otherProfile.is_verified} contactIsOfficial={otherProfile.is_official}
                     messages={messagesByConv[activeConv!] ?? []} myUserId={session.user.id} profiles={profiles}
                     readOnly={isSupportConv && !isAdmin} onSendMessage={handleSendMessage}
-                    onBack={() => setActiveConv(null)} />
+                    onBack={() => setActiveConv(null)} onStartCall={startCall} />
                 ) : (
                   <EmptyChat />
                 )}
@@ -241,6 +255,16 @@ const Index = () => {
       {showSettings && session && myProfile && (
         <SettingsDialog onClose={() => setShowSettings(false)} myUserId={session.user.id}
           displayName={myProfile.display_name} allowDms={myProfile.allow_dms ?? true} onUpdated={loadMe} />
+      )}
+      {session && (
+        <IncomingCallToast myUserId={session.user.id}
+          onAccept={(c) => setActiveCall({ id: c.id, peerId: c.caller_id, peerName: c.callerName, initiator: false, type: c.call_type })} />
+      )}
+      {activeCall && session && (
+        <CallWindow callId={activeCall.id} myUserId={session.user.id}
+          peerId={activeCall.peerId} peerName={activeCall.peerName}
+          initiator={activeCall.initiator} callType={activeCall.type}
+          onEnd={() => setActiveCall(null)} />
       )}
     </div>
   );
