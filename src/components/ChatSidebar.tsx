@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
-import { Search, Plus, Settings, LogOut, Shield, MessageCircle, Users } from "lucide-react";
+import { Search, Plus, Settings, LogOut, Shield, MessageCircle, Users, Globe } from "lucide-react";
 import magmaLogo from "@/assets/magma-logo.png";
 import Badges from "./Badges";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useUiSettings } from "@/hooks/useUiSettings";
 
 export interface ContactRow {
@@ -67,6 +68,10 @@ const ChatSidebar = ({
           </div>
         </div>
         <div className="flex gap-1">
+          <Link to="/social" title={t("nav.social", "Magma Social")}
+            className="p-2 rounded-lg hover:bg-fuchsia-500/15 transition-colors text-fuchsia-400">
+            <Globe size={18} />
+          </Link>
           {isAdmin && (
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onOpenAdmin}
               title="Panel de Admin" className="p-2 rounded-lg hover:bg-amber-500/20 transition-colors text-amber-400">
