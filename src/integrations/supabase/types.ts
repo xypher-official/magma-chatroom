@@ -38,80 +38,6 @@ export type Database = {
         }
         Relationships: []
       }
-      call_signals: {
-        Row: {
-          call_id: string
-          created_at: string
-          from_user: string
-          id: string
-          payload: Json
-          signal_type: string
-          to_user: string
-        }
-        Insert: {
-          call_id: string
-          created_at?: string
-          from_user: string
-          id?: string
-          payload: Json
-          signal_type: string
-          to_user: string
-        }
-        Update: {
-          call_id?: string
-          created_at?: string
-          from_user?: string
-          id?: string
-          payload?: Json
-          signal_type?: string
-          to_user?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "call_signals_call_id_fkey"
-            columns: ["call_id"]
-            isOneToOne: false
-            referencedRelation: "calls"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      calls: {
-        Row: {
-          call_type: string
-          callee_id: string | null
-          caller_id: string
-          conversation_id: string | null
-          ended_at: string | null
-          group_id: string | null
-          id: string
-          started_at: string
-          status: string
-        }
-        Insert: {
-          call_type?: string
-          callee_id?: string | null
-          caller_id: string
-          conversation_id?: string | null
-          ended_at?: string | null
-          group_id?: string | null
-          id?: string
-          started_at?: string
-          status?: string
-        }
-        Update: {
-          call_type?: string
-          callee_id?: string | null
-          caller_id?: string
-          conversation_id?: string | null
-          ended_at?: string | null
-          group_id?: string | null
-          id?: string
-          started_at?: string
-          status?: string
-        }
-        Relationships: []
-      }
       conversations: {
         Row: {
           created_at: string
@@ -468,133 +394,6 @@ export type Database = {
         }
         Relationships: []
       }
-      social_comments: {
-        Row: {
-          author_id: string
-          content: string
-          created_at: string
-          id: string
-          post_id: string
-        }
-        Insert: {
-          author_id: string
-          content: string
-          created_at?: string
-          id?: string
-          post_id: string
-        }
-        Update: {
-          author_id?: string
-          content?: string
-          created_at?: string
-          id?: string
-          post_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "social_comments_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "social_posts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      social_likes: {
-        Row: {
-          created_at: string
-          id: string
-          post_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          post_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          post_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "social_likes_post_id_fkey"
-            columns: ["post_id"]
-            isOneToOne: false
-            referencedRelation: "social_posts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      social_posts: {
-        Row: {
-          author_id: string
-          comments_count: number
-          content: string
-          created_at: string
-          id: string
-          likes_count: number
-          media_type: string | null
-          media_url: string | null
-          thumbnail_url: string | null
-          title: string
-          updated_at: string
-          views_count: number
-        }
-        Insert: {
-          author_id: string
-          comments_count?: number
-          content?: string
-          created_at?: string
-          id?: string
-          likes_count?: number
-          media_type?: string | null
-          media_url?: string | null
-          thumbnail_url?: string | null
-          title?: string
-          updated_at?: string
-          views_count?: number
-        }
-        Update: {
-          author_id?: string
-          comments_count?: number
-          content?: string
-          created_at?: string
-          id?: string
-          likes_count?: number
-          media_type?: string | null
-          media_url?: string | null
-          thumbnail_url?: string | null
-          title?: string
-          updated_at?: string
-          views_count?: number
-        }
-        Relationships: []
-      }
-      subscriptions: {
-        Row: {
-          channel_id: string
-          created_at: string
-          id: string
-          subscriber_id: string
-        }
-        Insert: {
-          channel_id: string
-          created_at?: string
-          id?: string
-          subscriber_id: string
-        }
-        Update: {
-          channel_id?: string
-          created_at?: string
-          id?: string
-          subscriber_id?: string
-        }
-        Relationships: []
-      }
       ui_settings: {
         Row: {
           id: string
@@ -613,33 +412,6 @@ export type Database = {
           key?: string
           updated_at?: string
           value?: string
-        }
-        Relationships: []
-      }
-      user_mutes: {
-        Row: {
-          created_at: string
-          id: string
-          muted_by: string
-          muted_until: string
-          reason: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          muted_by: string
-          muted_until: string
-          reason?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          muted_by?: string
-          muted_until?: string
-          reason?: string | null
-          user_id?: string
         }
         Relationships: []
       }
@@ -681,7 +453,6 @@ export type Database = {
         Args: { _group: string; _user: string }
         Returns: boolean
       }
-      is_user_muted: { Args: { _user: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"

@@ -31,7 +31,6 @@ interface ChatWindowProps {
   readOnly?: boolean;
   onSendMessage: (text: string) => void;
   onBack?: () => void;
-  onStartCall?: (type: "audio" | "video") => void;
 }
 
 const formatTime = (iso: string) =>
@@ -41,7 +40,7 @@ const ChatWindow = ({
   contactName, contactAvatar, contactOnline,
   contactIsVerified, contactIsOfficial,
   messages, myUserId, profiles, readOnly,
-  onSendMessage, onBack, onStartCall,
+  onSendMessage, onBack,
 }: ChatWindowProps) => {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -88,24 +87,11 @@ const ChatWindow = ({
           </p>
         </div>
         <div className="flex gap-1">
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-            disabled={!onStartCall || contactIsOfficial}
-            onClick={() => onStartCall?.("audio")}
-            title="Llamar"
-            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors disabled:opacity-30">
-            <Phone size={18} />
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-            disabled={!onStartCall || contactIsOfficial}
-            onClick={() => onStartCall?.("video")}
-            title="Video llamada"
-            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors disabled:opacity-30">
-            <Video size={18} />
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-            <MoreVertical size={18} />
-          </motion.button>
+          {[Phone, Video, MoreVertical].map((Icon, i) => (
+            <motion.button key={i} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+              <Icon size={18} />
+            </motion.button>
+          ))}
         </div>
       </motion.div>
 

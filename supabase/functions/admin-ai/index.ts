@@ -34,15 +34,6 @@ const tools = [
   // --- Grupos ---
   { type: "function", function: { name: "create_group", description: "Crea grupo oficial.", parameters: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, member_usernames: { type: "array", items: { type: "string" } } }, required: ["name"] } } },
   { type: "function", function: { name: "delete_group", description: "Elimina grupo.", parameters: { type: "object", properties: { group_id: { type: "string" } }, required: ["group_id"] } } },
-  // --- Moderation v2 ---
-  { type: "function", function: { name: "delete_message", description: "Elimina un mensaje 1-a-1 por id.", parameters: { type: "object", properties: { message_id: { type: "string" } }, required: ["message_id"] } } },
-  { type: "function", function: { name: "delete_group_message", description: "Elimina un mensaje de grupo por id.", parameters: { type: "object", properties: { message_id: { type: "string" } }, required: ["message_id"] } } },
-  { type: "function", function: { name: "delete_post", description: "Elimina un post de la sección Social por id.", parameters: { type: "object", properties: { post_id: { type: "string" } }, required: ["post_id"] } } },
-  { type: "function", function: { name: "delete_comment", description: "Elimina un comentario de Social por id.", parameters: { type: "object", properties: { comment_id: { type: "string" } }, required: ["comment_id"] } } },
-  { type: "function", function: { name: "mute_user", description: "Silencia a un usuario por X minutos. No podrá escribir mensajes ni postear.", parameters: { type: "object", properties: { user_id: { type: "string" }, minutes: { type: "number" }, reason: { type: "string" } }, required: ["user_id", "minutes"] } } },
-  { type: "function", function: { name: "unmute_user", description: "Quita el silencio de un usuario.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
-  { type: "function", function: { name: "list_recent_posts", description: "Lista los posts recientes del Social (para moderar).", parameters: { type: "object", properties: { limit: { type: "number" } } } } },
-  { type: "function", function: { name: "create_post_as_support", description: "Publica un post en el feed Social como ChatRoom Support.", parameters: { type: "object", properties: { title: { type: "string" }, content: { type: "string" }, media_url: { type: "string" }, media_type: { type: "string" } }, required: ["content"] } } },
   // --- UI Settings (NEW) ---
   { type: "function", function: { name: "set_ui_setting", description: "Cambia un texto UI, placeholder, label o cualquier token. Claves comunes: app.name, tab.chats, tab.groups, placeholder.message, placeholder.search.", parameters: { type: "object", properties: { key: { type: "string" }, value: { type: "string" } }, required: ["key", "value"] } } },
   { type: "function", function: { name: "list_ui_settings", description: "Lista todos los tokens UI actuales.", parameters: { type: "object", properties: {} } } },
@@ -191,31 +182,6 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
   }
   if (name === "delete_group") { await admin.from("groups").delete().eq("id", args.group_id); return { ok: true }; }
 
-  // --- Moderation v2 ---
-  if (name === "delete_message") { await admin.from("messages").delete().eq("id", args.message_id); return { ok: true }; }
-  if (name === "delete_group_message") { await admin.from("group_messages").delete().eq("id", args.message_id); return { ok: true }; }
-  if (name === "delete_post") { await admin.from("social_posts").delete().eq("id", args.post_id); return { ok: true }; }
-  if (name === "delete_comment") { await admin.from("social_comments").delete().eq("id", args.comment_id); return { ok: true }; }
-  if (name === "mute_user") {
-    const until = new Date(Date.now() + (Number(args.minutes) || 10) * 60000).toISOString();
-    await admin.from("user_mutes").upsert({ user_id: args.user_id, muted_until: until, reason: args.reason ?? "", muted_by: adminUserId }, { onConflict: "user_id" });
-    return { ok: true, muted_until: until };
-  }
-  if (name === "unmute_user") { await admin.from("user_mutes").delete().eq("user_id", args.user_id); return { ok: true }; }
-  if (name === "list_recent_posts") {
-    const { data } = await admin.from("social_posts").select("id,title,content,author_id,created_at").order("created_at", { ascending: false }).limit(args.limit ?? 10);
-    return { posts: data ?? [] };
-  }
-  if (name === "create_post_as_support") {
-    const supportId = await getOrCreateSupport(admin);
-    const { data, error } = await admin.from("social_posts").insert({
-      author_id: supportId, title: args.title ?? "", content: args.content,
-      media_url: args.media_url ?? null, media_type: args.media_type ?? null,
-    }).select("id").single();
-    if (error) return { error: error.message };
-    return { ok: true, post_id: data.id };
-  }
-
   // --- UI settings ---
   if (name === "set_ui_setting") {
     await admin.from("ui_settings").upsert({ key: args.key, value: String(args.value ?? ""), updated_at: new Date().toISOString() }, { onConflict: "key" });
@@ -284,15 +250,13 @@ Deno.serve(async (req) => {
     const messages = body.messages as Array<{ role: string; content: string }>;
 
     const systemPrompt = `Eres MAGMA-AI, la consola de administración del owner XypherDev en Magma Chat Room.
-Tienes poder TOTAL: usuarios, mensajes (1-a-1 y grupos), posts del Social, comentarios, mutes/bans, banner global, secciones legacy, eventos en vivo, grupos, tokens UI (textos/placeholders), tema (colores HSL) y páginas del sitio (menú ☰, con markdown + HTML básico).
+Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo, grupos, tokens UI (textos/placeholders), tema (colores HSL) y páginas del sitio (menú ☰, con markdown + HTML básico).
 Reglas:
 - Si actúas sobre un usuario por nombre, primero find_user; si hay varios resultados, pide aclaración.
 - Para cambiar textos UI usa set_ui_setting (ej: cambiar "Grupos" → "Chats grupales" usa key="tab.groups").
 - Para cambiar colores usa set_theme con HSL ("H S% L%").
 - Para crear secciones del menú lateral usa create_page con un slug único, emoji apropiado y nombre de ícono lucide-react válido (PascalCase: Flame, Crown, Users, Sparkles, MessageCircle, Shield, Bell, Star, Heart, Zap, BookOpen, FileText, Info, HelpCircle).
 - El contenido de páginas soporta markdown estándar y HTML básico (h1-h3, p, ul, ol, li, a, img, strong, em, blockquote, code). Aprovéchalo para crear secciones ricas.
-- Moderación: usa delete_message / delete_group_message / delete_post / delete_comment para borrar contenido. Usa mute_user (minutos) para silenciar temporalmente y set_banned para baneo permanente.
-- Para hablar como soporte oficial usa dm_as_support, broadcast o create_post_as_support.
 - Confirma cada acción con un mensaje breve y un emoji (🔥 ✅ ⚠️ 🗑️ 👑 💬 📢 🎬 📰 👥 🎨 📄).
 - Nunca actúes sobre el usuario oficial (chatroom_support).
 - Sé conciso, directo, en español.`;
@@ -300,7 +264,7 @@ Reglas:
     const conv: any[] = [{ role: "system", content: systemPrompt }, ...messages];
     let finalText = "";
 
-    for (let iter = 0; iter < 15; iter++) {
+    for (let iter = 0; iter < 10; iter++) {
       const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
