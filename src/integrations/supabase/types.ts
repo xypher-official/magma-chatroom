@@ -85,6 +85,7 @@ export type Database = {
           ended_at: string | null
           group_id: string | null
           id: string
+          room_id: string | null
           started_at: string
           status: string
         }
@@ -96,6 +97,7 @@ export type Database = {
           ended_at?: string | null
           group_id?: string | null
           id?: string
+          room_id?: string | null
           started_at?: string
           status?: string
         }
@@ -107,6 +109,7 @@ export type Database = {
           ended_at?: string | null
           group_id?: string | null
           id?: string
+          room_id?: string | null
           started_at?: string
           status?: string
         }
@@ -133,6 +136,30 @@ export type Database = {
           last_message_at?: string
           user_a?: string
           user_b?: string
+        }
+        Relationships: []
+      }
+      group_member_roles: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          role: Database["public"]["Enums"]["group_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          role?: Database["public"]["Enums"]["group_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          role?: Database["public"]["Enums"]["group_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -172,6 +199,8 @@ export type Database = {
           group_id: string
           id: string
           is_system: boolean
+          media_type: string | null
+          media_url: string | null
           sender_id: string
         }
         Insert: {
@@ -180,6 +209,8 @@ export type Database = {
           group_id: string
           id?: string
           is_system?: boolean
+          media_type?: string | null
+          media_url?: string | null
           sender_id: string
         }
         Update: {
@@ -188,6 +219,8 @@ export type Database = {
           group_id?: string
           id?: string
           is_system?: boolean
+          media_type?: string | null
+          media_url?: string | null
           sender_id?: string
         }
         Relationships: [
@@ -203,30 +236,36 @@ export type Database = {
       groups: {
         Row: {
           avatar_initials: string
+          avatar_url: string | null
           created_at: string
           description: string
           id: string
           last_message_at: string
           name: string
           owner_id: string
+          write_mode: string
         }
         Insert: {
           avatar_initials?: string
+          avatar_url?: string | null
           created_at?: string
           description?: string
           id?: string
           last_message_at?: string
           name: string
           owner_id: string
+          write_mode?: string
         }
         Update: {
           avatar_initials?: string
+          avatar_url?: string | null
           created_at?: string
           description?: string
           id?: string
           last_message_at?: string
           name?: string
           owner_id?: string
+          write_mode?: string
         }
         Relationships: []
       }
@@ -296,6 +335,8 @@ export type Database = {
           created_at: string
           id: string
           is_system: boolean
+          media_type: string | null
+          media_url: string | null
           read_at: string | null
           sender_id: string
         }
@@ -305,6 +346,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_system?: boolean
+          media_type?: string | null
+          media_url?: string | null
           read_at?: string | null
           sender_id: string
         }
@@ -314,6 +357,8 @@ export type Database = {
           created_at?: string
           id?: string
           is_system?: boolean
+          media_type?: string | null
+          media_url?: string | null
           read_at?: string | null
           sender_id?: string
         }
@@ -331,13 +376,16 @@ export type Database = {
         Row: {
           allow_dms: boolean
           avatar_initials: string
+          avatar_url: string | null
           created_at: string
           display_name: string
           id: string
           is_banned: boolean
           is_official: boolean
           is_verified: boolean
+          language: string
           last_seen: string
+          terms_accepted_at: string | null
           updated_at: string
           user_id: string
           username: string
@@ -345,13 +393,16 @@ export type Database = {
         Insert: {
           allow_dms?: boolean
           avatar_initials?: string
+          avatar_url?: string | null
           created_at?: string
           display_name: string
           id?: string
           is_banned?: boolean
           is_official?: boolean
           is_verified?: boolean
+          language?: string
           last_seen?: string
+          terms_accepted_at?: string | null
           updated_at?: string
           user_id: string
           username: string
@@ -359,13 +410,16 @@ export type Database = {
         Update: {
           allow_dms?: boolean
           avatar_initials?: string
+          avatar_url?: string | null
           created_at?: string
           display_name?: string
           id?: string
           is_banned?: boolean
           is_official?: boolean
           is_verified?: boolean
+          language?: string
           last_seen?: string
+          terms_accepted_at?: string | null
           updated_at?: string
           user_id?: string
           username?: string
@@ -670,6 +724,10 @@ export type Database = {
     }
     Functions: {
       conversation_has_official: { Args: { _conv: string }; Returns: boolean }
+      get_group_role: {
+        Args: { _group: string; _user: string }
+        Returns: Database["public"]["Enums"]["group_role"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -681,10 +739,19 @@ export type Database = {
         Args: { _group: string; _user: string }
         Returns: boolean
       }
+      is_group_mod_or_owner: {
+        Args: { _group: string; _user: string }
+        Returns: boolean
+      }
+      is_group_owner: {
+        Args: { _group: string; _user: string }
+        Returns: boolean
+      }
       is_user_muted: { Args: { _user: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
+      group_role: "owner" | "moderator" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -813,6 +880,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      group_role: ["owner", "moderator", "member"],
     },
   },
 } as const
