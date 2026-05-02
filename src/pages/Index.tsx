@@ -12,23 +12,27 @@ import NewChatDialog from "@/components/NewChatDialog";
 import NewGroupDialog from "@/components/NewGroupDialog";
 import SettingsDialog from "@/components/SettingsDialog";
 import GroupChatWindow from "@/components/GroupChatWindow";
+import GroupManageDialog from "@/components/GroupManageDialog";
 import SiteBanner from "@/components/SiteBanner";
 import LiveEventBar from "@/components/LiveEventBar";
 import SitePagesMenu from "@/components/SitePagesMenu";
+import CallOverlay from "@/components/CallOverlay";
+import { useWebRTCCall } from "@/hooks/useWebRTCCall";
 import { toast } from "sonner";
 
 interface Profile {
   user_id: string; username: string; display_name: string; avatar_initials: string;
   is_verified: boolean; is_banned: boolean; is_official: boolean; allow_dms?: boolean;
+  avatar_url?: string | null;
 }
-interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; owner_id: string; last_message_at: string }
+interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; avatar_url?: string | null; owner_id: string; last_message_at: string; write_mode?: string }
 
 const formatTime = (iso: string) => {
   const d = new Date(iso); const now = new Date();
-  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const diffDays = Math.floor((+now - +d) / 86400000);
-  if (diffDays < 7) return d.toLocaleDateString("es", { weekday: "short" });
-  return d.toLocaleDateString("es", { day: "2-digit", month: "2-digit" });
+  if (diffDays < 7) return d.toLocaleDateString([], { weekday: "short" });
+  return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
 };
 
 const Index = () => {
@@ -42,11 +46,15 @@ const Index = () => {
   const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
   const [activeConv, setActiveConv] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [activeGroupRole, setActiveGroupRole] = useState<"owner" | "moderator" | "member" | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGroupManage, setShowGroupManage] = useState(false);
   const bootstrappedRef = useRef(false);
+
+  const call = useWebRTCCall(session?.user.id);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
@@ -139,7 +147,7 @@ const Index = () => {
       return {
         id: c.id, otherUserId: otherId, name: p.display_name, avatar: p.avatar_initials,
         isVerified: p.is_verified, isOfficial: p.is_official,
-        lastMessage: last?.content ?? "Inicia la conversación",
+        lastMessage: last?.content ?? "—",
         time: formatTime(c.last_message_at), online: true,
       } as ContactRow;
     }).filter(Boolean) as ContactRow[];
@@ -147,7 +155,7 @@ const Index = () => {
 
   const groupRows: GroupRow[] = useMemo(() => groups.map((g) => ({
     id: g.id, name: g.name, avatar: g.avatar_initials,
-    lastMessage: g.description || "Grupo nuevo",
+    lastMessage: g.description || "—",
     time: formatTime(g.last_message_at), memberCount: groupCounts[g.id] ?? 0,
   })), [groups, groupCounts]);
 
@@ -158,12 +166,12 @@ const Index = () => {
   const isSupportConv = !!otherProfile?.is_official;
   const activeGroupData = activeGroup ? groups.find((g) => g.id === activeGroup) : null;
 
-  const handleSendMessage = useCallback(async (text: string) => {
+  const handleSendMessage = useCallback(async (text: string, mediaUrl?: string | null, mediaType?: string | null) => {
     if (!activeConv || !session) return;
     const { error } = await supabase.from("messages")
-      .insert({ conversation_id: activeConv, sender_id: session.user.id, content: text });
+      .insert({ conversation_id: activeConv, sender_id: session.user.id, content: text, media_url: mediaUrl ?? null, media_type: mediaType ?? null });
     if (error) {
-      toast.error(error.message.includes("conversation_has_official") ? "ChatRoom Support es solo lectura 🔒" : error.message);
+      toast.error(error.message.includes("conversation_has_official") ? "Read-only channel 🔒" : error.message);
     } else {
       await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", activeConv);
     }
@@ -176,6 +184,13 @@ const Index = () => {
   };
 
   const showRightPane = activeConv || activeGroup;
+
+  // Profiles map for CallOverlay
+  const profilesForCall = useMemo(() => {
+    const m: Record<string, { display_name: string; avatar_initials: string; avatar_url?: string | null }> = {};
+    Object.values(profiles).forEach((p) => { m[p.user_id] = { display_name: p.display_name, avatar_initials: p.avatar_initials, avatar_url: p.avatar_url }; });
+    return m;
+  }, [profiles]);
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -197,7 +212,7 @@ const Index = () => {
                   contacts={contacts} groups={groupRows}
                   activeContact={activeConv} activeGroup={activeGroup}
                   onSelectContact={(id) => { setActiveGroup(null); setActiveConv(id); }}
-                  onSelectGroup={(id) => { setActiveConv(null); setActiveGroup(id); }}
+                  onSelectGroup={(id) => { setActiveConv(null); setActiveGroup(id); setActiveGroupRole(null); }}
                   onLogout={handleLogout}
                   currentUser={myProfile?.display_name ?? session.user.email ?? ""}
                   isAdmin={isAdmin} isVerified={!!myProfile?.is_verified}
@@ -209,15 +224,28 @@ const Index = () => {
               </div>
               <div className={`flex-1 ${!showRightPane ? "hidden md:block" : "block"}`}>
                 {activeGroupData && session ? (
-                  <GroupChatWindow group={activeGroupData} myUserId={session.user.id} isAdmin={isAdmin}
-                    profiles={profiles} onBack={() => setActiveGroup(null)}
-                    onDeleted={() => { setActiveGroup(null); loadGroups(); }} />
+                  <GroupChatWindow
+                    group={activeGroupData} myUserId={session.user.id} isAdmin={isAdmin}
+                    profiles={profiles}
+                    onBack={() => setActiveGroup(null)}
+                    onOpenManage={() => setShowGroupManage(true)}
+                    onMyRoleResolved={setActiveGroupRole}
+                  />
                 ) : otherProfile ? (
-                  <ChatWindow contactName={otherProfile.display_name} contactAvatar={otherProfile.avatar_initials}
-                    contactOnline={true} contactIsVerified={otherProfile.is_verified} contactIsOfficial={otherProfile.is_official}
+                  <ChatWindow
+                    contactName={otherProfile.display_name}
+                    contactAvatar={otherProfile.avatar_initials}
+                    contactAvatarUrl={otherProfile.avatar_url}
+                    contactOnline={true}
+                    contactIsVerified={otherProfile.is_verified}
+                    contactIsOfficial={otherProfile.is_official}
+                    contactUserId={otherProfile.user_id}
                     messages={messagesByConv[activeConv!] ?? []} myUserId={session.user.id} profiles={profiles}
-                    readOnly={isSupportConv && !isAdmin} onSendMessage={handleSendMessage}
-                    onBack={() => setActiveConv(null)} />
+                    readOnly={isSupportConv && !isAdmin}
+                    onSendMessage={handleSendMessage}
+                    onBack={() => setActiveConv(null)}
+                    onStartCall={(uid, type) => call.startCall(uid, type)}
+                  />
                 ) : (
                   <EmptyChat />
                 )}
@@ -226,6 +254,11 @@ const Index = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Call overlay (always mounted when session exists) */}
+      {session && (
+        <CallOverlay call={call} profiles={profilesForCall} myUserId={session.user.id} />
+      )}
 
       {showAdmin && isAdmin && <AdminPanel onClose={() => setShowAdmin(false)} profiles={Object.values(profiles)} />}
       {showNewChat && session && (
@@ -240,7 +273,18 @@ const Index = () => {
       )}
       {showSettings && session && myProfile && (
         <SettingsDialog onClose={() => setShowSettings(false)} myUserId={session.user.id}
-          displayName={myProfile.display_name} allowDms={myProfile.allow_dms ?? true} onUpdated={loadMe} />
+          displayName={myProfile.display_name} allowDms={myProfile.allow_dms ?? true}
+          avatarUrl={myProfile.avatar_url} avatarInitials={myProfile.avatar_initials}
+          onUpdated={loadMe} onLogout={handleLogout} />
+      )}
+      {showGroupManage && session && activeGroupData && (
+        <GroupManageDialog
+          group={activeGroupData} myUserId={session.user.id}
+          myRole={isAdmin ? "owner" : activeGroupRole}
+          onClose={() => setShowGroupManage(false)}
+          onUpdated={() => { loadGroups(); }}
+          onDeleted={() => { setActiveGroup(null); loadGroups(); }}
+        />
       )}
     </div>
   );
