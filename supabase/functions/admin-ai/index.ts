@@ -34,6 +34,17 @@ const tools = [
   // --- Grupos ---
   { type: "function", function: { name: "create_group", description: "Crea grupo oficial.", parameters: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, member_usernames: { type: "array", items: { type: "string" } } }, required: ["name"] } } },
   { type: "function", function: { name: "delete_group", description: "Elimina grupo.", parameters: { type: "object", properties: { group_id: { type: "string" } }, required: ["group_id"] } } },
+  // --- Group management ---
+  { type: "function", function: { name: "update_group", description: "Actualiza nombre, descripción o write_mode (everyone|mods_only) de un grupo.", parameters: { type: "object", properties: { group_id: { type: "string" }, name: { type: "string" }, description: { type: "string" }, write_mode: { type: "string" } }, required: ["group_id"] } } },
+  { type: "function", function: { name: "set_group_role", description: "Asigna rol (owner|moderator|member) a un usuario en un grupo.", parameters: { type: "object", properties: { group_id: { type: "string" }, user_id: { type: "string" }, role: { type: "string" } }, required: ["group_id", "user_id", "role"] } } },
+  { type: "function", function: { name: "kick_from_group", description: "Quita a un usuario de un grupo.", parameters: { type: "object", properties: { group_id: { type: "string" }, user_id: { type: "string" } }, required: ["group_id", "user_id"] } } },
+  // --- Moderation ---
+  { type: "function", function: { name: "mute_user", description: "Silencia a un usuario por X minutos.", parameters: { type: "object", properties: { user_id: { type: "string" }, minutes: { type: "number" }, reason: { type: "string" } }, required: ["user_id", "minutes"] } } },
+  { type: "function", function: { name: "unmute_user", description: "Quita el mute de un usuario.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "delete_message", description: "Elimina un mensaje (DM) por id.", parameters: { type: "object", properties: { message_id: { type: "string" } }, required: ["message_id"] } } },
+  { type: "function", function: { name: "delete_group_message", description: "Elimina un mensaje de grupo por id.", parameters: { type: "object", properties: { message_id: { type: "string" } }, required: ["message_id"] } } },
+  // --- AI image gen ---
+  { type: "function", function: { name: "generate_image", description: "Genera una imagen con IA. purpose: avatar (de un user), group (de un grupo), chat (genérica). Retorna URL pública.", parameters: { type: "object", properties: { prompt: { type: "string" }, purpose: { type: "string" }, target_id: { type: "string" } }, required: ["prompt"] } } },
   // --- UI Settings (NEW) ---
   { type: "function", function: { name: "set_ui_setting", description: "Cambia un texto UI, placeholder, label o cualquier token. Claves comunes: app.name, tab.chats, tab.groups, placeholder.message, placeholder.search.", parameters: { type: "object", properties: { key: { type: "string" }, value: { type: "string" } }, required: ["key", "value"] } } },
   { type: "function", function: { name: "list_ui_settings", description: "Lista todos los tokens UI actuales.", parameters: { type: "object", properties: {} } } },
@@ -181,6 +192,78 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
     return { ok: true, group_id: g.id, members: added };
   }
   if (name === "delete_group") { await admin.from("groups").delete().eq("id", args.group_id); return { ok: true }; }
+  if (name === "update_group") {
+    const upd: any = {};
+    if (args.name !== undefined) { upd.name = String(args.name); upd.avatar_initials = String(args.name).substring(0,2).toUpperCase(); }
+    if (args.description !== undefined) upd.description = String(args.description);
+    if (args.write_mode !== undefined) upd.write_mode = String(args.write_mode);
+    await admin.from("groups").update(upd).eq("id", args.group_id);
+    return { ok: true };
+  }
+  if (name === "set_group_role") {
+    await admin.from("group_member_roles").upsert({ group_id: args.group_id, user_id: args.user_id, role: args.role }, { onConflict: "group_id,user_id" });
+    await admin.from("group_members").upsert({ group_id: args.group_id, user_id: args.user_id }, { onConflict: "group_id,user_id" }).then(() => {}, () => {});
+    return { ok: true };
+  }
+  if (name === "kick_from_group") {
+    await admin.from("group_members").delete().eq("group_id", args.group_id).eq("user_id", args.user_id);
+    await admin.from("group_member_roles").delete().eq("group_id", args.group_id).eq("user_id", args.user_id);
+    return { ok: true };
+  }
+  if (name === "mute_user") {
+    const minutes = Number(args.minutes ?? 60);
+    const until = new Date(Date.now() + minutes * 60_000).toISOString();
+    await admin.from("user_mutes").insert({ user_id: args.user_id, muted_by: adminUserId, muted_until: until, reason: args.reason ?? null });
+    return { ok: true, muted_until: until };
+  }
+  if (name === "unmute_user") {
+    await admin.from("user_mutes").delete().eq("user_id", args.user_id);
+    return { ok: true };
+  }
+  if (name === "delete_message") {
+    await admin.from("messages").delete().eq("id", args.message_id);
+    return { ok: true };
+  }
+  if (name === "delete_group_message") {
+    await admin.from("group_messages").delete().eq("id", args.message_id);
+    return { ok: true };
+  }
+  if (name === "generate_image") {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: String(args.prompt) }],
+        modalities: ["image", "text"],
+      }),
+    });
+    if (!aiRes.ok) return { error: `AI gateway error ${aiRes.status}` };
+    const j = await aiRes.json();
+    const imgUrl: string | undefined = j?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (!imgUrl?.startsWith("data:image/")) return { error: "No image returned" };
+    const commaIdx = imgUrl.indexOf(",");
+    const meta = imgUrl.slice(5, commaIdx);
+    const mime = meta.split(";")[0];
+    const ext = mime.includes("jpeg") ? "jpg" : "png";
+    const bin = Uint8Array.from(atob(imgUrl.slice(commaIdx + 1)), (c) => c.charCodeAt(0));
+    const purpose = String(args.purpose ?? "chat");
+    const ts = Date.now();
+    const filename =
+      purpose === "avatar" && args.target_id ? `${args.target_id}/avatar-${ts}.${ext}` :
+      purpose === "group" && args.target_id ? `${adminUserId}/group-${args.target_id}-${ts}.${ext}` :
+      `${adminUserId}/admin-${ts}.${ext}`;
+    const { error: upErr } = await admin.storage.from("avatars").upload(filename, bin, { contentType: mime, upsert: true });
+    if (upErr) return { error: upErr.message };
+    const { data: pub } = admin.storage.from("avatars").getPublicUrl(filename);
+    const url = pub.publicUrl;
+    if (purpose === "avatar" && args.target_id) {
+      await admin.from("profiles").update({ avatar_url: url }).eq("user_id", args.target_id);
+    } else if (purpose === "group" && args.target_id) {
+      await admin.from("groups").update({ avatar_url: url }).eq("id", args.target_id);
+    }
+    return { ok: true, url };
+  }
 
   // --- UI settings ---
   if (name === "set_ui_setting") {
