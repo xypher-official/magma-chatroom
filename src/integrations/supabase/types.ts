@@ -38,6 +38,30 @@ export type Database = {
         }
         Relationships: []
       }
+      call_events: {
+        Row: {
+          call_id: string
+          created_at: string
+          event_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       call_signals: {
         Row: {
           call_id: string
@@ -75,6 +99,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      call_theme: {
+        Row: {
+          accent_color: string
+          background_style: string
+          button_position: string
+          camera_label: string
+          custom_css: string
+          hangup_label: string
+          id: number
+          mute_label: string
+          primary_color: string
+          show_participants: boolean
+          show_timer: boolean
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          background_style?: string
+          button_position?: string
+          camera_label?: string
+          custom_css?: string
+          hangup_label?: string
+          id?: number
+          mute_label?: string
+          primary_color?: string
+          show_participants?: boolean
+          show_timer?: boolean
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          background_style?: string
+          button_position?: string
+          camera_label?: string
+          custom_css?: string
+          hangup_label?: string
+          id?: number
+          mute_label?: string
+          primary_color?: string
+          show_participants?: boolean
+          show_timer?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       calls: {
         Row: {
@@ -269,6 +338,33 @@ export type Database = {
         }
         Relationships: []
       }
+      important_users: {
+        Row: {
+          created_at: string
+          id: string
+          marked_by: string
+          note: string | null
+          priority: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          marked_by: string
+          note?: string | null
+          priority?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          marked_by?: string
+          note?: string | null
+          priority?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       live_events: {
         Row: {
           created_at: string
@@ -327,6 +423,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      location_pings: {
+        Row: {
+          accuracy: number | null
+          created_at: string
+          id: string
+          lat: number
+          lng: number
+          share_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          created_at?: string
+          id?: string
+          lat: number
+          lng: number
+          share_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          created_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          share_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_pings_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "location_shares"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_shares: {
+        Row: {
+          active: boolean
+          conversation_id: string | null
+          created_at: string
+          expires_at: string | null
+          group_id: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          group_id?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          expires_at?: string | null
+          group_id?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -426,29 +587,83 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_calls: {
+        Row: {
+          call_type: string
+          created_at: string
+          description: string
+          group_id: string | null
+          host_id: string
+          id: string
+          invitee_ids: string[]
+          room_id: string
+          scheduled_at: string
+          share_link: string
+          status: string
+          title: string
+        }
+        Insert: {
+          call_type?: string
+          created_at?: string
+          description?: string
+          group_id?: string | null
+          host_id: string
+          id?: string
+          invitee_ids?: string[]
+          room_id?: string
+          scheduled_at: string
+          share_link?: string
+          status?: string
+          title?: string
+        }
+        Update: {
+          call_type?: string
+          created_at?: string
+          description?: string
+          group_id?: string | null
+          host_id?: string
+          id?: string
+          invitee_ids?: string[]
+          room_id?: string
+          scheduled_at?: string
+          share_link?: string
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
       site_banner: {
         Row: {
           color: string
+          cta_label: string
           enabled: boolean
+          icon: string
           id: number
           link: string | null
           message: string
+          position: string
           updated_at: string
         }
         Insert: {
           color?: string
+          cta_label?: string
           enabled?: boolean
+          icon?: string
           id?: number
           link?: string | null
           message?: string
+          position?: string
           updated_at?: string
         }
         Update: {
           color?: string
+          cta_label?: string
           enabled?: boolean
+          icon?: string
           id?: number
           link?: string | null
           message?: string
+          position?: string
           updated_at?: string
         }
         Relationships: []
