@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Paperclip, Phone, Video, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X } from "lucide-react";
+import { Send, Smile, Phone, Video, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin } from "lucide-react";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import EmojiPickerPopover from "./EmojiPickerPopover";
+import VoiceRecorder from "./VoiceRecorder";
+import VoiceMessageBubble from "./VoiceMessageBubble";
+import LocationShareDialog from "./LocationShareDialog";
+import { useLocationShare } from "@/hooks/useLocationShare";
 
 export interface MessageRow {
   id: string;
@@ -56,6 +61,9 @@ const ChatWindow = ({
   const [showAi, setShowAi] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [showLoc, setShowLoc] = useState(false);
+  const loc = useLocationShare(myUserId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -142,6 +150,7 @@ const ChatWindow = ({
             const isOwn = msg.sender_id === myUserId;
             const senderProfile = profiles[msg.sender_id];
             const hasImage = msg.media_url && msg.media_type?.startsWith("image");
+            const hasAudio = msg.media_url && msg.media_type === "audio";
             return (
               <motion.div
                 key={msg.id}
@@ -168,6 +177,7 @@ const ChatWindow = ({
                   {hasImage && (
                     <img src={msg.media_url!} alt="" className="rounded-xl mb-1 max-h-72 w-full object-cover" loading="lazy" />
                   )}
+                  {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
                   {msg.content && (
                     <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{msg.content}</p>
                   )}
@@ -211,16 +221,27 @@ const ChatWindow = ({
             <Lock size={14} /> {t("chat.officialNoReply")}
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
+            <EmojiPickerPopover open={showEmoji} onClose={() => setShowEmoji(false)}
+              onPick={(e) => setInput((v) => v + e)} />
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
               onClick={() => setShowAi((v) => !v)}
               title={t("ai.generateImage")}
               className={`p-2 rounded-lg transition-colors ${showAi ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
               <ImageIcon size={20} />
             </motion.button>
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowEmoji((v) => !v)} title="Emoji"
+              className={`p-2 rounded-lg transition-colors ${showEmoji ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
               <Smile size={20} />
             </motion.button>
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowLoc(true)} title="Share location"
+              className={`p-2 rounded-lg transition-colors ${loc.sharing ? "bg-green-500/20 text-green-500" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+              <MapPin size={20} />
+            </motion.button>
+            <VoiceRecorder myUserId={myUserId}
+              onSent={(url, type, dur) => onSendMessage(`🎙️ ${dur}s`, url, type)} />
             <input
               type="text" value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -238,6 +259,16 @@ const ChatWindow = ({
           </div>
         )}
       </div>
+      <LocationShareDialog open={showLoc} sharing={loc.sharing}
+        onClose={() => setShowLoc(false)}
+        onStart={async (d) => {
+          // Find conversation id from the messages prop (best effort)
+          const convId = messages[0]?.conversation_id;
+          const id = await loc.start({ duration: d, conversationId: convId });
+          if (id) onSendMessage("📍 Live location shared");
+          setShowLoc(false);
+        }}
+        onStop={() => { loc.stop(); setShowLoc(false); onSendMessage("📍 Live location stopped"); }} />
     </div>
   );
 };
