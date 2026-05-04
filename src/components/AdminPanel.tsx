@@ -82,7 +82,8 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
     }
   };
 
-  const myUserId = ""; // resolved client-side via session in picker; we pass empty (picker handles "you first" if matching)
+  const [myUserId, setMyUserId] = useState("");
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setMyUserId(data.session?.user.id ?? "")); }, []);
 
   const toggleVerified = async (p: Profile) => {
     await callAction({ action: "set_verified", target_user_id: p.user_id, value: !p.is_verified });
