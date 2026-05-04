@@ -24,7 +24,7 @@ const tools = [
   // --- Stats ---
   { type: "function", function: { name: "stats", description: "Estadísticas globales.", parameters: { type: "object", properties: {} } } },
   // --- CMS / Banner ---
-  { type: "function", function: { name: "set_banner", description: "Configura banner global. color: amber|red|sky|emerald|fuchsia.", parameters: { type: "object", properties: { enabled: { type: "boolean" }, message: { type: "string" }, link: { type: "string" }, color: { type: "string" } }, required: ["enabled"] } } },
+  { type: "function", function: { name: "set_banner", description: "Configura banner global. color: amber|red|sky|emerald|fuchsia. cta_label: texto del botón. icon: nombre lucide.", parameters: { type: "object", properties: { enabled: { type: "boolean" }, message: { type: "string" }, link: { type: "string" }, color: { type: "string" }, cta_label: { type: "string" }, icon: { type: "string" } }, required: ["enabled"] } } },
   { type: "function", function: { name: "upsert_section", description: "Crea/actualiza sección legacy del sitio.", parameters: { type: "object", properties: { key: { type: "string" }, title: { type: "string" }, content: { type: "string" }, enabled: { type: "boolean" } }, required: ["key"] } } },
   { type: "function", function: { name: "list_sections", description: "Lista secciones legacy.", parameters: { type: "object", properties: {} } } },
   // --- Eventos ---
@@ -56,6 +56,12 @@ const tools = [
   { type: "function", function: { name: "delete_page", description: "Elimina página por slug.", parameters: { type: "object", properties: { slug: { type: "string" } }, required: ["slug"] } } },
   { type: "function", function: { name: "list_pages", description: "Lista todas las páginas del menú.", parameters: { type: "object", properties: {} } } },
   { type: "function", function: { name: "suggest_emoji_icon", description: "Sugiere un emoji y un ícono lucide para un concepto. Devuelve {emoji, icon}.", parameters: { type: "object", properties: { concept: { type: "string" } }, required: ["concept"] } } },
+  // --- Advanced user mgmt ---
+  { type: "function", function: { name: "reset_password", description: "Genera y aplica una nueva contraseña temporal segura para un usuario; devuélvela una sola vez.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "user_stats", description: "Estadísticas detalladas de un usuario: mensajes enviados, conversaciones, grupos, posts, último visto.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "mark_important", description: "Marca a un usuario como importante (aparece primero en buscadores). priority menor = más arriba (1=tú, 100=normal).", parameters: { type: "object", properties: { user_id: { type: "string" }, priority: { type: "number" }, note: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "unmark_important", description: "Quita la marca de importante.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "list_important", description: "Lista usuarios marcados como importantes ordenados por prioridad.", parameters: { type: "object", properties: {} } } },
 ];
 
 async function getOrCreateSupport(admin: ReturnType<typeof createClient>) {
@@ -136,6 +142,8 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
     if (args.message !== undefined) upd.message = String(args.message);
     if (args.link !== undefined) upd.link = args.link;
     if (args.color !== undefined) upd.color = String(args.color);
+    if (args.cta_label !== undefined) upd.cta_label = String(args.cta_label);
+    if (args.icon !== undefined) upd.icon = String(args.icon);
     await admin.from("site_banner").update(upd).eq("id", 1);
     return { ok: true };
   }
@@ -312,6 +320,45 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
   if (name === "suggest_emoji_icon") {
     // simple heuristic; LLM ya elige usualmente. Devuelve placeholder seguro.
     return { emoji: "✨", icon: "Sparkles", note: "Usa este resultado como base; puedes elegir otro emoji/ícono." };
+  }
+  if (name === "reset_password") {
+    const newPass = "Magma" + crypto.randomUUID().slice(0, 10) + "!7";
+    const { error } = await admin.auth.admin.updateUserById(String(args.user_id), { password: newPass });
+    if (error) return { error: error.message };
+    return { ok: true, temp_password: newPass, note: "Muestra esta contraseña UNA SOLA VEZ; pídele al usuario que la cambie tras iniciar sesión." };
+  }
+  if (name === "user_stats") {
+    const uid = String(args.user_id);
+    const [{ data: prof }, msgs, posts, comments, gms, conv1, conv2] = await Promise.all([
+      admin.from("profiles").select("display_name,username,last_seen,created_at,is_verified,is_banned").eq("user_id", uid).maybeSingle(),
+      admin.from("messages").select("id", { count: "exact", head: true }).eq("sender_id", uid),
+      admin.from("social_posts").select("id", { count: "exact", head: true }).eq("author_id", uid),
+      admin.from("social_comments").select("id", { count: "exact", head: true }).eq("author_id", uid),
+      admin.from("group_messages").select("id", { count: "exact", head: true }).eq("sender_id", uid),
+      admin.from("conversations").select("id", { count: "exact", head: true }).eq("user_a", uid),
+      admin.from("conversations").select("id", { count: "exact", head: true }).eq("user_b", uid),
+    ]);
+    return {
+      profile: prof,
+      messages: msgs.count ?? 0,
+      group_messages: gms.count ?? 0,
+      conversations: (conv1.count ?? 0) + (conv2.count ?? 0),
+      posts: posts.count ?? 0,
+      comments: comments.count ?? 0,
+    };
+  }
+  if (name === "mark_important") {
+    const payload: any = { user_id: args.user_id, marked_by: adminUserId, priority: args.priority ?? 100, note: args.note ?? "" };
+    await admin.from("important_users").upsert(payload, { onConflict: "user_id" });
+    return { ok: true };
+  }
+  if (name === "unmark_important") {
+    await admin.from("important_users").delete().eq("user_id", args.user_id);
+    return { ok: true };
+  }
+  if (name === "list_important") {
+    const { data } = await admin.from("important_users").select("user_id, priority, note").order("priority", { ascending: true });
+    return { important: data ?? [] };
   }
   return { error: "unknown tool" };
 }

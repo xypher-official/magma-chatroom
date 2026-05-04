@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { useWebRTCCall } from "@/hooks/useWebRTCCall";
 
 type Call = ReturnType<typeof useWebRTCCall>;
@@ -16,13 +18,35 @@ const CallOverlay = ({ call, profiles, myUserId }: Props) => {
   const { t } = useI18n();
   const { state, incoming, active, muted, cameraOff, localVideoRef, remoteVideoRef,
     acceptCall, declineCall, hangup, toggleMute, toggleCamera } = call;
+  const [elapsed, setElapsed] = useState(0);
 
-  // Re-attach streams when refs become available (videos render only when state changes).
+  // Tick timer when active
   useEffect(() => {
-    if (localVideoRef.current && (localVideoRef.current as any)._needsAttach) {
-      // no-op: srcObject is set inside the hook when getUserMedia returns
-    }
-  }, [state, localVideoRef]);
+    if (state !== "active") { setElapsed(0); return; }
+    const t0 = Date.now();
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [state]);
+
+  // Listen for join/leave events to toast participants
+  useEffect(() => {
+    if (!active) return;
+    const ch = supabase.channel(`call-events-${active.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_events", filter: `call_id=eq.${active.id}` }, (p) => {
+        const ev: any = p.new;
+        if (ev.user_id === myUserId) return;
+        const name = profiles[ev.user_id]?.display_name ?? "Someone";
+        if (ev.event_type === "joined") toast.success(`📞 ${name} joined`);
+        else if (ev.event_type === "left") toast.info(`👋 ${name} left`);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [active, myUserId, profiles]);
+
+  const fmtTime = (s: number) => {
+    const m = Math.floor(s / 60); const r = s % 60;
+    return `${m.toString().padStart(2, "0")}:${r.toString().padStart(2, "0")}`;
+  };
 
   if (state === "idle") return null;
 
@@ -97,6 +121,9 @@ const CallOverlay = ({ call, profiles, myUserId }: Props) => {
               <p className="text-muted-foreground mt-2">
                 {state === "calling" ? t("call.calling") : state === "active" ? t("call.connected") : "…"}
               </p>
+              {state === "active" && (
+                <p className="text-2xl font-mono mt-3 magma-gradient-text font-bold">{fmtTime(elapsed)}</p>
+              )}
             </div>
           )}
 
@@ -104,8 +131,9 @@ const CallOverlay = ({ call, profiles, myUserId }: Props) => {
           {isVideo && other && (
             <div className="absolute top-0 inset-x-0 p-5 bg-gradient-to-b from-black/70 to-transparent">
               <p className="text-white font-semibold text-lg">{other.display_name}</p>
-              <p className="text-white/70 text-xs">
-                {state === "calling" ? t("call.calling") : state === "active" ? t("call.connected") : "…"}
+              <p className="text-white/70 text-xs flex items-center gap-2">
+                <span>{state === "calling" ? t("call.calling") : state === "active" ? t("call.connected") : "…"}</span>
+                {state === "active" && <span className="font-mono text-amber-300">{fmtTime(elapsed)}</span>}
               </p>
             </div>
           )}

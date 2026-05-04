@@ -10,6 +10,8 @@ import AdminAIConsole from "./AdminAIConsole";
 import CmsTab from "./CmsTab";
 import EventsTab from "./EventsTab";
 import UiTab from "./UiTab";
+import UserPickerDialog from "./UserPickerDialog";
+import { Search } from "lucide-react";
 
 interface Profile {
   user_id: string;
@@ -32,6 +34,8 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
   const [tab, setTab] = useState<Tab>("ai");
   const [broadcast, setBroadcast] = useState("");
   const [dmTarget, setDmTarget] = useState<string>("");
+  const [dmTargetName, setDmTargetName] = useState<string>("");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [dmText, setDmText] = useState("");
   const [sending, setSending] = useState(false);
   const [stats, setStats] = useState<{ users?: number; msgs?: number; convs?: number; bcasts?: number }>({});
@@ -77,6 +81,9 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
       setDmText("");
     }
   };
+
+  const [myUserId, setMyUserId] = useState("");
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setMyUserId(data.session?.user.id ?? "")); }, []);
 
   const toggleVerified = async (p: Profile) => {
     await callAction({ action: "set_verified", target_user_id: p.user_id, value: !p.is_verified });
@@ -191,18 +198,13 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
                   <p className="text-xs text-muted-foreground mb-3">
                     Solo lo recibe el usuario seleccionado, también desde ChatRoom Support.
                   </p>
-                  <select
-                    value={dmTarget}
-                    onChange={(e) => setDmTarget(e.target.value)}
-                    className="w-full mb-2 px-4 py-3 rounded-xl bg-input border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/50"
-                  >
-                    <option value="">— Selecciona un usuario —</option>
-                    {realUsers.map((u) => (
-                      <option key={u.user_id} value={u.user_id}>
-                        {u.display_name} (@{u.username})
-                      </option>
-                    ))}
-                  </select>
+                  <button onClick={() => setPickerOpen(true)}
+                    className="w-full mb-2 px-4 py-3 rounded-xl bg-input border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/50 flex items-center gap-2 hover:border-primary/40 transition-colors">
+                    <Search size={14} className="text-muted-foreground" />
+                    <span className={dmTargetName ? "text-foreground" : "text-muted-foreground"}>
+                      {dmTargetName || "Buscar usuario… (filtros, alfabético, recientes, importantes)"}
+                    </span>
+                  </button>
                   <textarea
                     value={dmText}
                     onChange={(e) => setDmText(e.target.value)}
@@ -299,6 +301,9 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
           </div>
         </motion.div>
       </motion.div>
+      <UserPickerDialog open={pickerOpen} myUserId={myUserId}
+        onClose={() => setPickerOpen(false)}
+        onPick={(id, name) => { setDmTarget(id); setDmTargetName(name); setPickerOpen(false); }} />
     </AnimatePresence>
   );
 };

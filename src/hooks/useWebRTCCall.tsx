@@ -48,6 +48,9 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       await supabase.removeChannel(signalChannelRef.current);
       signalChannelRef.current = null;
     }
+    if (markEnded && callIdRef.current && myUserId) {
+      try { await supabase.from("call_events").insert({ call_id: callIdRef.current, user_id: myUserId, event_type: "left" }); } catch { /* ignore */ }
+    }
     if (markEnded && callIdRef.current) {
       await supabase.from("calls").update({ status: "ended", ended_at: new Date().toISOString() }).eq("id", callIdRef.current);
     }
@@ -58,7 +61,7 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
     setMuted(false);
     setCameraOff(false);
     setState("idle");
-  }, []);
+  }, [myUserId]);
 
   const sendSignal = useCallback(async (toUser: string, signalType: string, payload: any) => {
     if (!callIdRef.current || !myUserId) return;
@@ -86,11 +89,16 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remote;
     };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "connected") setState("active");
+      if (pc.connectionState === "connected") {
+        setState("active");
+        if (callIdRef.current && myUserId) {
+          supabase.from("call_events").insert({ call_id: callIdRef.current, user_id: myUserId, event_type: "joined" }).then(() => {}, () => {});
+        }
+      }
       if (pc.connectionState === "failed" || pc.connectionState === "closed") cleanup();
     };
     return pc;
-  }, [cleanup, sendSignal]);
+  }, [cleanup, sendSignal, myUserId]);
 
   const getLocalStream = useCallback(async (video: boolean) => {
     const stream = await navigator.mediaDevices.getUserMedia({

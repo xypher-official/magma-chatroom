@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Megaphone, X } from "lucide-react";
+import * as Icons from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface Banner { enabled: boolean; message: string; link: string | null; color: string }
+interface Banner { enabled: boolean; message: string; link: string | null; color: string; cta_label?: string; icon?: string; position?: string }
 
 const colorMap: Record<string, string> = {
   amber: "from-amber-500 to-orange-600",
@@ -28,6 +28,8 @@ const SiteBanner = () => {
   }, []);
 
   const visible = banner?.enabled && banner.message && !dismissed;
+  const IconCmp = (banner?.icon && (Icons as any)[banner.icon]) || Icons.Megaphone;
+  const X = Icons.X;
   return (
     <AnimatePresence>
       {visible && (
@@ -35,13 +37,13 @@ const SiteBanner = () => {
           initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }}
           className={`relative z-30 px-4 py-2 text-white text-sm font-medium bg-gradient-to-r ${colorMap[banner!.color] ?? colorMap.amber} flex items-center justify-center gap-3 shadow-lg`}
         >
-          <Megaphone size={16} className="shrink-0" />
-          {banner!.link ? (
-            <a href={banner!.link} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:opacity-90 truncate">
-              {banner!.message}
+          <IconCmp size={16} className="shrink-0" />
+          <span className="truncate">{banner!.message}</span>
+          {banner!.link && (
+            <a href={banner!.link} target={banner!.link.startsWith("http") ? "_blank" : undefined} rel="noreferrer"
+              className="ml-2 px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 text-xs font-bold backdrop-blur transition-colors shrink-0">
+              {banner!.cta_label || "Open"} →
             </a>
-          ) : (
-            <span className="truncate">{banner!.message}</span>
           )}
           <button onClick={() => setDismissed(true)} className="ml-auto p-1 rounded hover:bg-white/20" aria-label="Cerrar">
             <X size={14} />
