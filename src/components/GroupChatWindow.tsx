@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock } from "lucide-react";
+import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
+import EmojiPickerPopover from "./EmojiPickerPopover";
+import VoiceRecorder from "./VoiceRecorder";
+import VoiceMessageBubble from "./VoiceMessageBubble";
 
 interface GroupMsg { id: string; group_id: string; sender_id: string; content: string; is_system: boolean; created_at: string; media_url?: string | null; media_type?: string | null }
 interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; avatar_url?: string | null; owner_id: string; write_mode?: string }
@@ -32,6 +35,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const [showAi, setShowAi] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,6 +118,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
             const isOwn = msg.sender_id === myUserId;
             const sender = profiles[msg.sender_id];
             const hasImage = msg.media_url && msg.media_type?.startsWith("image");
+            const hasAudio = msg.media_url && msg.media_type === "audio";
             return (
               <motion.div key={msg.id} initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
@@ -128,6 +133,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
                   {hasImage && (
                     <img src={msg.media_url!} alt="" className="rounded-xl mb-1 max-h-72 w-full object-cover" loading="lazy" />
                   )}
+                  {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
                   {msg.content && (
                     <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{msg.content}</p>
                   )}
@@ -168,12 +174,21 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
             <Lock size={14} /> {t("group.cantWrite")}
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
+            <EmojiPickerPopover open={showEmoji} onClose={() => setShowEmoji(false)}
+              onPick={(e) => setInput((v) => v + e)} />
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
               onClick={() => setShowAi((v) => !v)} title={t("ai.generateImage")}
               className={`p-2 rounded-lg transition-colors ${showAi ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
               <ImageIcon size={20} />
             </motion.button>
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowEmoji((v) => !v)} title="Emoji"
+              className={`p-2 rounded-lg transition-colors ${showEmoji ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+              <Smile size={20} />
+            </motion.button>
+            <VoiceRecorder myUserId={myUserId}
+              onSent={(url, type, dur) => send(url, type, `🎙️ ${dur}s`)} />
             <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
               placeholder={t("chat.placeholder")}
               className="flex-1 px-4 py-2.5 rounded-xl bg-muted text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/30" />
