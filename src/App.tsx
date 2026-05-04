@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Terms from "./pages/Terms.tsx";
 import CallStudio from "./pages/CallStudio.tsx";
+import CallPage from "./pages/CallPage.tsx";
 import { UiSettingsProvider } from "@/hooks/useUiSettings";
 import { I18nProvider } from "@/hooks/useI18n";
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/studio/call" element={<CallStudio />} />
+          <Route path="/call/:roomId" element={<CallPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
