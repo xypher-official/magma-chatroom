@@ -24,7 +24,7 @@ const tools = [
   // --- Stats ---
   { type: "function", function: { name: "stats", description: "Estadísticas globales.", parameters: { type: "object", properties: {} } } },
   // --- CMS / Banner ---
-  { type: "function", function: { name: "set_banner", description: "Configura banner global. color: amber|red|sky|emerald|fuchsia.", parameters: { type: "object", properties: { enabled: { type: "boolean" }, message: { type: "string" }, link: { type: "string" }, color: { type: "string" } }, required: ["enabled"] } } },
+  { type: "function", function: { name: "set_banner", description: "Configura banner global. color: amber|red|sky|emerald|fuchsia. cta_label: texto del botón. icon: nombre lucide.", parameters: { type: "object", properties: { enabled: { type: "boolean" }, message: { type: "string" }, link: { type: "string" }, color: { type: "string" }, cta_label: { type: "string" }, icon: { type: "string" } }, required: ["enabled"] } } },
   { type: "function", function: { name: "upsert_section", description: "Crea/actualiza sección legacy del sitio.", parameters: { type: "object", properties: { key: { type: "string" }, title: { type: "string" }, content: { type: "string" }, enabled: { type: "boolean" } }, required: ["key"] } } },
   { type: "function", function: { name: "list_sections", description: "Lista secciones legacy.", parameters: { type: "object", properties: {} } } },
   // --- Eventos ---
@@ -56,6 +56,12 @@ const tools = [
   { type: "function", function: { name: "delete_page", description: "Elimina página por slug.", parameters: { type: "object", properties: { slug: { type: "string" } }, required: ["slug"] } } },
   { type: "function", function: { name: "list_pages", description: "Lista todas las páginas del menú.", parameters: { type: "object", properties: {} } } },
   { type: "function", function: { name: "suggest_emoji_icon", description: "Sugiere un emoji y un ícono lucide para un concepto. Devuelve {emoji, icon}.", parameters: { type: "object", properties: { concept: { type: "string" } }, required: ["concept"] } } },
+  // --- Advanced user mgmt ---
+  { type: "function", function: { name: "reset_password", description: "Genera y aplica una nueva contraseña temporal segura para un usuario; devuélvela una sola vez.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "user_stats", description: "Estadísticas detalladas de un usuario: mensajes enviados, conversaciones, grupos, posts, último visto.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "mark_important", description: "Marca a un usuario como importante (aparece primero en buscadores). priority menor = más arriba (1=tú, 100=normal).", parameters: { type: "object", properties: { user_id: { type: "string" }, priority: { type: "number" }, note: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "unmark_important", description: "Quita la marca de importante.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
+  { type: "function", function: { name: "list_important", description: "Lista usuarios marcados como importantes ordenados por prioridad.", parameters: { type: "object", properties: {} } } },
 ];
 
 async function getOrCreateSupport(admin: ReturnType<typeof createClient>) {
