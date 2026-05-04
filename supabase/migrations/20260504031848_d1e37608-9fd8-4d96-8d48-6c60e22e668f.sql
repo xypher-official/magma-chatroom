@@ -1,0 +1,1 @@
+ALTER TABLE public.important_users ADD CONSTRAINT important_users_user_id_unique UNIQUE (user_id);
