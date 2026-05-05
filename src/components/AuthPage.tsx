@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import magmaLogo from "@/assets/magma-logo.png";
 import { useI18n } from "@/hooks/useI18n";
 import { LANGS } from "@/i18n/translations";
+import LanguagePickerSheet from "./LanguagePickerSheet";
 
 const usernameToEmail = (u: string) =>
   `${u.toLowerCase().replace(/[^a-z0-9_]/g, "")}@magmachat.local`;
@@ -20,6 +21,8 @@ const AuthPage = () => {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const currentLang = LANGS.find((l) => l.code === lang) ?? LANGS[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,16 +76,16 @@ const AuthPage = () => {
     <div className="min-h-screen flex items-center justify-center relative z-10 px-4 py-8">
       {/* Floating language picker */}
       <div className="absolute top-4 right-4 z-20">
-        <select
-          value={lang}
-          onChange={(e) => setLang(e.target.value as any)}
-          className="bg-card/70 backdrop-blur-md border border-border rounded-xl px-3 py-2 text-sm text-foreground outline-none cursor-pointer hover:bg-card transition-colors"
+        <motion.button
+          whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+          onClick={() => setLangOpen(true)}
+          className="bg-card/70 backdrop-blur-md border border-border rounded-xl px-3 py-2 text-sm text-foreground hover:bg-card transition-colors flex items-center gap-2"
         >
-          {LANGS.map((l) => (
-            <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
-          ))}
-        </select>
+          <span className="text-base leading-none">{currentLang.flag}</span>
+          <span className="font-medium">{currentLang.label}</span>
+        </motion.button>
       </div>
+      <LanguagePickerSheet open={langOpen} current={lang} onClose={() => setLangOpen(false)} onPick={setLang} />
 
       <motion.div
         initial={{ opacity: 0, y: 40, scale: 0.95 }}

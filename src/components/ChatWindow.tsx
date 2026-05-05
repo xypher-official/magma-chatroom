@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon } from "lucide-react";
+import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2 } from "lucide-react";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +45,7 @@ interface ChatWindowProps {
   myUserId: string;
   profiles: Record<string, Profile>;
   readOnly?: boolean;
+  canDeleteMessages?: boolean;
   onSendMessage: (text: string, mediaUrl?: string | null, mediaType?: string | null) => void;
   onBack?: () => void;
   onStartCall?: (calleeId: string, callType: "video" | "audio") => void;
@@ -56,7 +57,7 @@ const formatTime = (iso: string) =>
 const ChatWindow = ({
   contactName, contactAvatar, contactAvatarUrl, contactOnline,
   contactIsVerified, contactIsOfficial, contactUserId,
-  messages, myUserId, profiles, readOnly,
+  messages, myUserId, profiles, readOnly, canDeleteMessages,
   onSendMessage, onBack, onStartCall,
 }: ChatWindowProps) => {
   const { t } = useI18n();
@@ -80,6 +81,13 @@ const ChatWindow = ({
     if (!input.trim() || readOnly) return;
     onSendMessage(input.trim());
     setInput("");
+  };
+
+  const deleteMessage = async (id: string) => {
+    if (!confirm("Delete this message?")) return;
+    const { error } = await supabase.from("messages").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else toast.success("Message deleted");
   };
 
   const generateAndSend = async () => {
@@ -165,7 +173,7 @@ const ChatWindow = ({
                 className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[75%] px-3 py-2 rounded-2xl overflow-hidden ${
+                  className={`group relative max-w-[75%] px-3 py-2 rounded-2xl overflow-hidden ${
                     isOwn
                       ? "magma-gradient text-primary-foreground rounded-br-md magma-glow-sm"
                       : msg.is_system
@@ -173,6 +181,13 @@ const ChatWindow = ({
                         : "glass-panel-strong text-foreground rounded-bl-md"
                   }`}
                 >
+                  {canDeleteMessages && (
+                    <button onClick={() => deleteMessage(msg.id)}
+                      title="Delete message"
+                      className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full p-1 shadow-lg">
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                   {!isOwn && (
                     <p className={`text-xs font-semibold mb-1 px-1 flex items-center ${msg.is_system ? "text-sky-400" : "text-primary"}`}>
                       <span>{senderProfile?.display_name ?? "?"}</span>
