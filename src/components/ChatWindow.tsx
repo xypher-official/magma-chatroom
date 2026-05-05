@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Phone, Video, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin } from "lucide-react";
+import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon } from "lucide-react";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,9 @@ import VoiceRecorder from "./VoiceRecorder";
 import VoiceMessageBubble from "./VoiceMessageBubble";
 import LocationShareDialog from "./LocationShareDialog";
 import { useLocationShare } from "@/hooks/useLocationShare";
+import CallOptionsSheet from "./CallOptionsSheet";
+import LiveLocationMap from "./LiveLocationMap";
+import ScheduleCallDialog from "./ScheduleCallDialog";
 
 export interface MessageRow {
   id: string;
@@ -63,6 +66,9 @@ const ChatWindow = ({
   const [aiBusy, setAiBusy] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showLoc, setShowLoc] = useState(false);
+  const [showCallOpts, setShowCallOpts] = useState(false);
+  const [showSched, setShowSched] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const loc = useLocationShare(myUserId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -123,20 +129,19 @@ const ChatWindow = ({
         </div>
         <div className="flex gap-1">
           {!contactIsOfficial && contactUserId && onStartCall && (
-            <>
-              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                onClick={() => onStartCall(contactUserId, "audio")}
-                title={t("call.audio")}
-                className="p-2 rounded-lg hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors">
-                <Phone size={18} />
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                onClick={() => onStartCall(contactUserId, "video")}
-                title={t("call.video")}
-                className="p-2 rounded-lg hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors">
-                <Video size={18} />
-              </motion.button>
-            </>
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowCallOpts(true)}
+              title="Call options"
+              className="p-2 rounded-lg hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors">
+              <Phone size={18} />
+            </motion.button>
+          )}
+          {loc.sharing && (
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowMap(true)} title="View map"
+              className="p-2 rounded-lg bg-green-500/20 text-green-500 transition-colors">
+              <MapIcon size={18} />
+            </motion.button>
           )}
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
             <MoreVertical size={18} />
@@ -265,10 +270,22 @@ const ChatWindow = ({
           // Find conversation id from the messages prop (best effort)
           const convId = messages[0]?.conversation_id;
           const id = await loc.start({ duration: d, conversationId: convId });
-          if (id) onSendMessage("📍 Live location shared");
+          if (id) {
+            onSendMessage("📍 Live location shared — tap the map icon to view");
+            setShowMap(true);
+          }
           setShowLoc(false);
         }}
         onStop={() => { loc.stop(); setShowLoc(false); onSendMessage("📍 Live location stopped"); }} />
+      {contactUserId && onStartCall && (
+        <CallOptionsSheet open={showCallOpts} onClose={() => setShowCallOpts(false)}
+          contactName={contactName} contactUserId={contactUserId} myUserId={myUserId}
+          onStartCall={onStartCall} onSchedule={() => setShowSched(true)} />
+      )}
+      <ScheduleCallDialog open={showSched} onClose={() => setShowSched(false)} myUserId={myUserId} />
+      <LiveLocationMap open={showMap} onClose={() => setShowMap(false)} myUserId={myUserId}
+        conversationId={messages[0]?.conversation_id} contactName={contactName}
+        mySharing={loc.sharing} onStopMine={() => { loc.stop(); setShowMap(false); }} />
     </div>
   );
 };
