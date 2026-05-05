@@ -242,6 +242,7 @@ const Index = () => {
                     contactUserId={otherProfile.user_id}
                     messages={messagesByConv[activeConv!] ?? []} myUserId={session.user.id} profiles={profiles}
                     readOnly={isSupportConv && !isAdmin}
+                    canDeleteMessages={isAdmin}
                     onSendMessage={handleSendMessage}
                     onBack={() => setActiveConv(null)}
                     onStartCall={(uid, type) => call.startCall(uid, type)}
