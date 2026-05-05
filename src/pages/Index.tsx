@@ -18,6 +18,7 @@ import LiveEventBar from "@/components/LiveEventBar";
 import SitePagesMenu from "@/components/SitePagesMenu";
 import CallOverlay from "@/components/CallOverlay";
 import { useWebRTCCall } from "@/hooks/useWebRTCCall";
+import { useNotifications } from "@/hooks/useNotifications";
 import { toast } from "sonner";
 
 interface Profile {
@@ -55,6 +56,8 @@ const Index = () => {
   const bootstrappedRef = useRef(false);
 
   const call = useWebRTCCall(session?.user.id);
+
+  useNotifications(session?.user.id, isAdmin, activeConv, profiles as any);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
