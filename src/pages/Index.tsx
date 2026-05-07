@@ -17,6 +17,9 @@ import SiteBanner from "@/components/SiteBanner";
 import LiveEventBar from "@/components/LiveEventBar";
 import SitePagesMenu from "@/components/SitePagesMenu";
 import CallOverlay from "@/components/CallOverlay";
+import SiteEffectsLayer from "@/components/SiteEffectsLayer";
+import GroupInvitesInbox from "@/components/GroupInvitesInbox";
+import InviteToGroupDialog from "@/components/InviteToGroupDialog";
 import { useWebRTCCall } from "@/hooks/useWebRTCCall";
 import { useNotifications } from "@/hooks/useNotifications";
 import { toast } from "sonner";
@@ -53,6 +56,7 @@ const Index = () => {
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showGroupManage, setShowGroupManage] = useState(false);
+  const [inviteToGroup, setInviteToGroup] = useState<{ id: string; name: string } | null>(null);
   const bootstrappedRef = useRef(false);
 
   const call = useWebRTCCall(session?.user.id);
@@ -198,6 +202,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <LavaParticles />
+      <SiteEffectsLayer />
       <AnimatePresence mode="wait">
         {!session ? (
           <motion.div key="auth" exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}>
@@ -272,9 +277,22 @@ const Index = () => {
       )}
       {showNewGroup && session && (
         <NewGroupDialog onClose={() => setShowNewGroup(false)}
-          onCreated={(id) => { setShowNewGroup(false); setActiveConv(null); setActiveGroup(id); loadGroups(); }}
+          onCreated={(id) => {
+            setShowNewGroup(false); setActiveConv(null); setActiveGroup(id);
+            loadGroups();
+            const g = groups.find(x => x.id === id);
+            setInviteToGroup({ id, name: g?.name ?? "el grupo" });
+          }}
           myUserId={session.user.id} profiles={Object.values(profiles)} />
       )}
+      {inviteToGroup && session && (
+        <InviteToGroupDialog open={!!inviteToGroup}
+          groupId={inviteToGroup.id} groupName={inviteToGroup.name}
+          myUserId={session.user.id} profiles={Object.values(profiles)}
+          conversations={conversations}
+          onClose={() => setInviteToGroup(null)} />
+      )}
+      {session && <GroupInvitesInbox myUserId={session.user.id} onJoined={loadGroups} />}
       {showSettings && session && myProfile && (
         <SettingsDialog onClose={() => setShowSettings(false)} myUserId={session.user.id}
           displayName={myProfile.display_name} allowDms={myProfile.allow_dms ?? true}
