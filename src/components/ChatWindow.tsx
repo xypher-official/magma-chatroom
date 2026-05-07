@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2 } from "lucide-react";
+import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff } from "lucide-react";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,8 @@ import { useLocationShare } from "@/hooks/useLocationShare";
 import CallOptionsSheet from "./CallOptionsSheet";
 import LiveLocationMap from "./LiveLocationMap";
 import ScheduleCallDialog from "./ScheduleCallDialog";
+import BlockedBanner from "./BlockedBanner";
+import { useBlocks } from "@/hooks/useBlocks";
 
 export interface MessageRow {
   id: string;
@@ -70,7 +72,9 @@ const ChatWindow = ({
   const [showCallOpts, setShowCallOpts] = useState(false);
   const [showSched, setShowSched] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const loc = useLocationShare(myUserId);
+  const { iBlocked, blockedMe, block, unblock } = useBlocks(myUserId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,6 +83,10 @@ const ChatWindow = ({
 
   const handleSend = () => {
     if (!input.trim() || readOnly) return;
+    if (contactUserId && (iBlocked(contactUserId) || blockedMe(contactUserId))) {
+      toast.error("No puedes enviar mensajes a este usuario");
+      return;
+    }
     onSendMessage(input.trim());
     setInput("");
   };
@@ -135,7 +143,7 @@ const ChatWindow = ({
             {contactIsOfficial ? t("chat.officialReadOnly") : (contactOnline ? t("chat.online") : t("chat.offline"))}
           </p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 relative">
           {!contactIsOfficial && contactUserId && onStartCall && (
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
               onClick={() => setShowCallOpts(true)}
@@ -151,9 +159,33 @@ const ChatWindow = ({
               <MapIcon size={18} />
             </motion.button>
           )}
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            onClick={() => setShowMenu(v => !v)}
+            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
             <MoreVertical size={18} />
           </motion.button>
+          <AnimatePresence>
+            {showMenu && contactUserId && !contactIsOfficial && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-popover shadow-2xl overflow-hidden z-50"
+              >
+                {iBlocked(contactUserId) ? (
+                  <button onClick={() => { unblock(contactUserId); setShowMenu(false); toast.success("Usuario desbloqueado"); }}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-muted flex items-center gap-2 text-emerald-500">
+                    <ShieldOff size={14} /> Desbloquear a {contactName}
+                  </button>
+                ) : (
+                  <button onClick={() => { block(contactUserId); setShowMenu(false); toast.success("Usuario bloqueado"); }}
+                    className="w-full px-4 py-3 text-left text-sm hover:bg-muted flex items-center gap-2 text-destructive">
+                    <Ban size={14} /> Bloquear a {contactName}
+                  </button>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
 
@@ -240,6 +272,13 @@ const ChatWindow = ({
           <div className="flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground">
             <Lock size={14} /> {t("chat.officialNoReply")}
           </div>
+        ) : contactUserId && (iBlocked(contactUserId) || blockedMe(contactUserId)) ? (
+          <BlockedBanner
+            iBlocked={iBlocked(contactUserId)}
+            blockedMe={blockedMe(contactUserId)}
+            contactName={contactName}
+            onUnblock={() => { unblock(contactUserId); toast.success("Usuario desbloqueado"); }}
+          />
         ) : (
           <div className="flex items-center gap-2 relative">
             <EmojiPickerPopover open={showEmoji} onClose={() => setShowEmoji(false)}
