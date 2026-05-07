@@ -62,6 +62,11 @@ const tools = [
   { type: "function", function: { name: "mark_important", description: "Marca a un usuario como importante (aparece primero en buscadores). priority menor = más arriba (1=tú, 100=normal).", parameters: { type: "object", properties: { user_id: { type: "string" }, priority: { type: "number" }, note: { type: "string" } }, required: ["user_id"] } } },
   { type: "function", function: { name: "unmark_important", description: "Quita la marca de importante.", parameters: { type: "object", properties: { user_id: { type: "string" } }, required: ["user_id"] } } },
   { type: "function", function: { name: "list_important", description: "Lista usuarios marcados como importantes ordenados por prioridad.", parameters: { type: "object", properties: {} } } },
+  // --- Site Effects (NEW) ---
+  { type: "function", function: { name: "set_effect", description: "Activa/desactiva un efecto visual GLOBAL del sitio para todos los usuarios. keys: snow, hats, confetti, rain, fireworks. duration_minutes opcional para auto-desactivar.", parameters: { type: "object", properties: { key: { type: "string" }, enabled: { type: "boolean" }, duration_minutes: { type: "number" } }, required: ["key", "enabled"] } } },
+  { type: "function", function: { name: "list_effects", description: "Lista efectos del sitio y su estado.", parameters: { type: "object", properties: {} } } },
+  // --- Event scheduling ---
+  { type: "function", function: { name: "schedule_event", description: "Programa un evento con cuenta regresiva. publish_at es ISO datetime en el futuro. Si no se da, publica ahora.", parameters: { type: "object", properties: { title: { type: "string" }, description: { type: "string" }, publish_at: { type: "string" }, countdown_label: { type: "string" }, primary_color: { type: "string" }, accent_color: { type: "string" } }, required: ["title"] } } },
 ];
 
 async function getOrCreateSupport(admin: ReturnType<typeof createClient>) {
@@ -360,6 +365,32 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
     const { data } = await admin.from("important_users").select("user_id, priority, note").order("priority", { ascending: true });
     return { important: data ?? [] };
   }
+  if (name === "set_effect") {
+    const expires = args.duration_minutes
+      ? new Date(Date.now() + Number(args.duration_minutes) * 60_000).toISOString()
+      : null;
+    await admin.from("site_effects").upsert({
+      key: args.key, enabled: !!args.enabled, expires_at: expires, updated_at: new Date().toISOString(),
+    }, { onConflict: "key" });
+    return { ok: true, key: args.key, enabled: !!args.enabled, expires_at: expires };
+  }
+  if (name === "list_effects") {
+    const { data } = await admin.from("site_effects").select("*").order("key");
+    return { effects: data ?? [] };
+  }
+  if (name === "schedule_event") {
+    const future = args.publish_at && new Date(args.publish_at).getTime() > Date.now();
+    const { data, error } = await admin.from("live_events").insert({
+      title: args.title, description: args.description ?? "",
+      created_by: adminUserId,
+      is_active: true, is_draft: false,
+      publish_at: future ? args.publish_at : null,
+      countdown_label: args.countdown_label ?? "Comenzamos en",
+      theme: { primary: args.primary_color ?? "#f97316", accent: args.accent_color ?? "#d946ef" },
+    }).select("id").single();
+    if (error) return { error: error.message };
+    return { ok: true, event_id: data!.id, scheduled: future ? args.publish_at : "now" };
+  }
   return { error: "unknown tool" };
 }
 
@@ -380,7 +411,7 @@ Deno.serve(async (req) => {
     const messages = body.messages as Array<{ role: string; content: string }>;
 
     const systemPrompt = `Eres MAGMA-AI, la consola de administración del owner XypherDev en Magma Chat Room.
-Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo, grupos, tokens UI (textos/placeholders), tema (colores HSL) y páginas del sitio (menú ☰, con markdown + HTML básico).
+Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo (con cuenta regresiva via schedule_event), efectos visuales globales (set_effect: snow, hats, confetti, rain, fireworks), grupos, tokens UI, tema (colores HSL) y páginas del sitio (menú ☰, markdown + HTML básico).
 Reglas:
 - Si actúas sobre un usuario por nombre, primero find_user; si hay varios resultados, pide aclaración.
 - Para cambiar textos UI usa set_ui_setting (ej: cambiar "Grupos" → "Chats grupales" usa key="tab.groups").

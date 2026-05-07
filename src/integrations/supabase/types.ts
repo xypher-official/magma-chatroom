@@ -208,6 +208,33 @@ export type Database = {
         }
         Relationships: []
       }
+      group_invites: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          invitee_id: string
+          inviter_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          invitee_id: string
+          inviter_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          invitee_id?: string
+          inviter_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       group_member_roles: {
         Row: {
           created_at: string
@@ -367,30 +394,42 @@ export type Database = {
       }
       live_events: {
         Row: {
+          countdown_label: string
           created_at: string
           created_by: string
           description: string
           ended_at: string | null
           id: string
           is_active: boolean
+          is_draft: boolean
+          publish_at: string | null
+          theme: Json
           title: string
         }
         Insert: {
+          countdown_label?: string
           created_at?: string
           created_by: string
           description?: string
           ended_at?: string | null
           id?: string
           is_active?: boolean
+          is_draft?: boolean
+          publish_at?: string | null
+          theme?: Json
           title: string
         }
         Update: {
+          countdown_label?: string
           created_at?: string
           created_by?: string
           description?: string
           ended_at?: string | null
           id?: string
           is_active?: boolean
+          is_draft?: boolean
+          publish_at?: string | null
+          theme?: Json
           title?: string
         }
         Relationships: []
@@ -668,6 +707,33 @@ export type Database = {
         }
         Relationships: []
       }
+      site_effects: {
+        Row: {
+          config: Json
+          enabled: boolean
+          expires_at: string | null
+          id: string
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          enabled?: boolean
+          expires_at?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          enabled?: boolean
+          expires_at?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       site_pages: {
         Row: {
           content: string
@@ -885,6 +951,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       user_mutes: {
         Row: {
           created_at: string
@@ -950,6 +1037,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_blocked_between: { Args: { _a: string; _b: string }; Returns: boolean }
       is_group_member: {
         Args: { _group: string; _user: string }
         Returns: boolean

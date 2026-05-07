@@ -9,6 +9,7 @@ import Badges from "./Badges";
 import AdminAIConsole from "./AdminAIConsole";
 import CmsTab from "./CmsTab";
 import EventsTab from "./EventsTab";
+import { Link } from "react-router-dom";
 import UiTab from "./UiTab";
 import UserPickerDialog from "./UserPickerDialog";
 import { Search } from "lucide-react";
@@ -166,6 +167,13 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
             {tab === "cms" && <CmsTab />}
             {tab === "ui" && <UiTab />}
             {tab === "events" && <EventsTab />}
+            {tab === "events" && (
+              <div className="mt-4">
+                <Link to="/studio/events" className="block w-full py-3 rounded-xl bg-gradient-to-r from-fuchsia-500 to-amber-500 text-white font-semibold text-center text-sm">
+                  🎬 Abrir Event Studio (vista previa + cuenta regresiva)
+                </Link>
+              </div>
+            )}
             {tab === "broadcast" && (
               <div className="space-y-6">
                 <section>
