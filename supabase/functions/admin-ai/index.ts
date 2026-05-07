@@ -411,7 +411,7 @@ Deno.serve(async (req) => {
     const messages = body.messages as Array<{ role: string; content: string }>;
 
     const systemPrompt = `Eres MAGMA-AI, la consola de administración del owner XypherDev en Magma Chat Room.
-Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo, grupos, tokens UI (textos/placeholders), tema (colores HSL) y páginas del sitio (menú ☰, con markdown + HTML básico).
+Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo (con cuenta regresiva via schedule_event), efectos visuales globales (set_effect: snow, hats, confetti, rain, fireworks), grupos, tokens UI, tema (colores HSL) y páginas del sitio (menú ☰, markdown + HTML básico).
 Reglas:
 - Si actúas sobre un usuario por nombre, primero find_user; si hay varios resultados, pide aclaración.
 - Para cambiar textos UI usa set_ui_setting (ej: cambiar "Grupos" → "Chats grupales" usa key="tab.groups").
