@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Flame, Lock, User as UserIcon, Eye, EyeOff, Mail, ShieldCheck } from "lucide-react";
+import { Flame, Lock, User as UserIcon, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import magmaLogo from "@/assets/magma-logo.png";
