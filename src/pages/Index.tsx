@@ -20,6 +20,7 @@ import CallOverlay from "@/components/CallOverlay";
 import SiteEffectsLayer from "@/components/SiteEffectsLayer";
 import GroupInvitesInbox from "@/components/GroupInvitesInbox";
 import InviteToGroupDialog from "@/components/InviteToGroupDialog";
+import Email2FAGate, { passed2FA, consume2FA } from "@/components/Email2FAGate";
 import { useWebRTCCall } from "@/hooks/useWebRTCCall";
 import { useNotifications } from "@/hooks/useNotifications";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ interface Profile {
   user_id: string; username: string; display_name: string; avatar_initials: string;
   is_verified: boolean; is_banned: boolean; is_official: boolean; allow_dms?: boolean;
   avatar_url?: string | null;
+  email?: string | null; email_verified_at?: string | null;
 }
 interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; avatar_url?: string | null; owner_id: string; last_message_at: string; write_mode?: string }
 
@@ -58,16 +60,27 @@ const Index = () => {
   const [showGroupManage, setShowGroupManage] = useState(false);
   const [inviteToGroup, setInviteToGroup] = useState<{ id: string; name: string } | null>(null);
   const bootstrappedRef = useRef(false);
+  const [twoFaOk, setTwoFaOk] = useState(false);
 
   const call = useWebRTCCall(session?.user.id);
 
   useNotifications(session?.user.id, isAdmin, activeConv, profiles as any);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      if (!s) setTwoFaOk(false);
+    });
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // If the user already passed 2FA this session, honor it on reload.
+  useEffect(() => {
+    if (session?.user.id && passed2FA(session.user.id)) setTwoFaOk(true);
+  }, [session]);
+
+  const need2FA = !!(session && myProfile?.email && myProfile?.email_verified_at && !twoFaOk);
 
   useEffect(() => {
     if (!session || bootstrappedRef.current) return;
