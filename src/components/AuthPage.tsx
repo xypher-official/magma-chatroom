@@ -22,9 +22,6 @@ const AuthPage = () => {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
-  const [challenge, setChallenge] = useState<{ hint: string } | null>(null);
-  const [challengeCode, setChallengeCode] = useState("");
-  const [challengeBusy, setChallengeBusy] = useState(false);
   const currentLang = LANGS.find((l) => l.code === lang) ?? LANGS[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,17 +56,6 @@ const AuthPage = () => {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // Check if the user has a verified email — if so, require 2FA before allowing in
-        try {
-          const { data } = await supabase.functions.invoke("email-verify", { body: { action: "challenge" } });
-          if (data?.required) {
-            setChallenge({ hint: data.hint });
-            if (data.dev_code) toast.success(`Código (dev): ${data.dev_code}`, { duration: 12000 });
-            else toast.success(`📧 Código enviado a ${data.hint}`);
-            setLoading(false);
-            return;
-          }
-        } catch (e) { console.warn("challenge skipped", e); }
         toast.success(`${t("auth.welcome")} 🔥`);
       }
       try {
@@ -86,59 +72,8 @@ const AuthPage = () => {
     } finally { setLoading(false); }
   };
 
-  const confirmChallenge = async () => {
-    setChallengeBusy(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("email-verify", {
-        body: { action: "verify", code: challengeCode.trim() },
-      });
-      if (error || data?.error) throw new Error(error?.message ?? data.error);
-      setChallenge(null); setChallengeCode("");
-      toast.success("✅ Identidad confirmada");
-    } catch (e: any) {
-      toast.error(e.message);
-      // Sign out so the session isn't usable without the second factor
-      await supabase.auth.signOut();
-    } finally { setChallengeBusy(false); }
-  };
-
-  const cancelChallenge = async () => {
-    await supabase.auth.signOut();
-    setChallenge(null); setChallengeCode("");
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center relative z-10 px-4 py-8">
-      {/* Email 2FA challenge overlay */}
-      <AnimatePresence>
-        {challenge && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-30 bg-background/90 backdrop-blur-md flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }}
-              className="w-full max-w-sm glass-panel-strong rounded-3xl p-7 border border-primary/30 text-center">
-              <div className="w-14 h-14 mx-auto rounded-2xl magma-gradient flex items-center justify-center mb-3 magma-glow-sm">
-                <ShieldCheck className="text-white" size={26} />
-              </div>
-              <h2 className="text-lg font-bold magma-gradient-text">Verifica tu correo</h2>
-              <p className="text-xs text-muted-foreground mt-1 mb-5 flex items-center justify-center gap-1.5">
-                <Mail size={12} /> Código enviado a <strong>{challenge.hint}</strong>
-              </p>
-              <input value={challengeCode} onChange={(e) => setChallengeCode(e.target.value)}
-                maxLength={6} placeholder="000000"
-                className="w-full px-3 py-3 rounded-xl bg-input border border-border text-foreground text-center text-2xl font-mono tracking-[0.5em] outline-none focus:ring-2 focus:ring-primary/40" />
-              <div className="flex gap-2 mt-4">
-                <button onClick={cancelChallenge}
-                  className="flex-1 py-3 rounded-xl bg-muted text-foreground font-medium text-sm">Cancelar</button>
-                <button onClick={confirmChallenge} disabled={challengeBusy || challengeCode.length < 4}
-                  className="flex-1 py-3 rounded-xl magma-gradient text-primary-foreground font-bold magma-glow-sm text-sm disabled:opacity-60">
-                  {challengeBusy ? "…" : "Verificar"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Floating language picker */}
       <div className="absolute top-4 right-4 z-20">
         <motion.button
