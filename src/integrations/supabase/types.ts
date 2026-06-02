@@ -208,6 +208,36 @@ export type Database = {
         }
         Relationships: []
       }
+      email_verifications: {
+        Row: {
+          code: string
+          consumed_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          code: string
+          consumed_at?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          code?: string
+          consumed_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       group_invites: {
         Row: {
           created_at: string
@@ -579,10 +609,14 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string
+          email: string | null
+          email_verified_at: string | null
           id: string
           is_banned: boolean
           is_official: boolean
           is_verified: boolean
+          keyboard_enabled: boolean
+          keyboard_theme: string
           language: string
           last_seen: string
           terms_accepted_at: string | null
@@ -596,10 +630,14 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name: string
+          email?: string | null
+          email_verified_at?: string | null
           id?: string
           is_banned?: boolean
           is_official?: boolean
           is_verified?: boolean
+          keyboard_enabled?: boolean
+          keyboard_theme?: string
           language?: string
           last_seen?: string
           terms_accepted_at?: string | null
@@ -613,10 +651,14 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string
+          email?: string | null
+          email_verified_at?: string | null
           id?: string
           is_banned?: boolean
           is_official?: boolean
           is_verified?: boolean
+          keyboard_enabled?: boolean
+          keyboard_theme?: string
           language?: string
           last_seen?: string
           terms_accepted_at?: string | null

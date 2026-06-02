@@ -15,6 +15,8 @@ import LiveLocationMap from "./LiveLocationMap";
 import ScheduleCallDialog from "./ScheduleCallDialog";
 import BlockedBanner from "./BlockedBanner";
 import { useBlocks } from "@/hooks/useBlocks";
+import { useKeyboardPref } from "@/hooks/useKeyboardPref";
+import SmartKeyboard from "./SmartKeyboard";
 
 export interface MessageRow {
   id: string;
@@ -56,6 +58,22 @@ interface ChatWindowProps {
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+// Turn URLs into clickable links inside message bubbles
+const linkify = (text: string, isOwn: boolean) => {
+  const parts = text.split(/(\bhttps?:\/\/[^\s]+)/g);
+  return parts.map((p, i) => {
+    if (/^https?:\/\//.test(p)) {
+      return (
+        <a key={i} href={p} target="_blank" rel="noopener noreferrer"
+          className={`underline font-medium break-all ${isOwn ? "text-white/90 hover:text-white" : "text-primary hover:text-primary/80"}`}>
+          {p}
+        </a>
+      );
+    }
+    return <span key={i}>{p}</span>;
+  });
+};
+
 const ChatWindow = ({
   contactName, contactAvatar, contactAvatarUrl, contactOnline,
   contactIsVerified, contactIsOfficial, contactUserId,
@@ -75,6 +93,7 @@ const ChatWindow = ({
   const [showMenu, setShowMenu] = useState(false);
   const loc = useLocationShare(myUserId);
   const { iBlocked, blockedMe, block, unblock } = useBlocks(myUserId);
+  const kb = useKeyboardPref(myUserId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -231,7 +250,7 @@ const ChatWindow = ({
                   )}
                   {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
                   {msg.content && (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{msg.content}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{linkify(msg.content, isOwn)}</p>
                   )}
                   <p className={`text-[10px] mt-1 px-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                     {formatTime(msg.created_at)}
@@ -317,6 +336,10 @@ const ChatWindow = ({
             </motion.button>
           </div>
         )}
+        {/* Smart in-app keyboard (user setting) */}
+        {kb.enabled && !readOnly && !(contactUserId && (iBlocked(contactUserId) || blockedMe(contactUserId))) && (
+          <SmartKeyboard value={input} onChange={setInput} onSubmit={handleSend} theme={kb.theme} />
+        )}
       </div>
       <LocationShareDialog open={showLoc} sharing={loc.sharing}
         onClose={() => setShowLoc(false)}
@@ -325,7 +348,11 @@ const ChatWindow = ({
           const convId = messages[0]?.conversation_id;
           const id = await loc.start({ duration: d, conversationId: convId });
           if (id) {
-            onSendMessage("📍 Live location shared — tap the map icon to view");
+            const myName = profiles[myUserId]?.display_name ?? "Someone";
+            const link = `${window.location.origin}/share/loc/${id}`;
+            onSendMessage(
+              `📍 ${myName} shared his location.\nVisit the link below to see ${myName}'s location:\n${link}`
+            );
             setShowMap(true);
           }
           setShowLoc(false);
