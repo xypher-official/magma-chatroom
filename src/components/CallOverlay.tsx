@@ -103,9 +103,25 @@ const CallOverlay = ({ call, profiles, myUserId }: Props) => {
         className="fixed inset-0 z-[100] bg-black flex flex-col">
         {/* Remote video / fallback */}
         <div className="flex-1 relative overflow-hidden">
+          {/* Always-mounted remote stream sink. For audio-only calls this is the
+              only thing playing the remote track. Without it, audio is silent. */}
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={isVideo ? "hidden" : "hidden"}
+            style={{ display: isVideo ? "none" : "none" }}
+          />
           {isVideo && (
-            <video ref={remoteVideoRef} autoPlay playsInline
-              className="absolute inset-0 w-full h-full object-cover" />
+            <video
+              autoPlay playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+              ref={(el) => {
+                if (el && remoteVideoRef.current?.srcObject) {
+                  el.srcObject = remoteVideoRef.current.srcObject;
+                }
+              }}
+            />
           )}
           {!isVideo && other && (
             <div className="absolute inset-0 ember-bg flex flex-col items-center justify-center">
