@@ -306,6 +306,14 @@ const Index = () => {
           onClose={() => setInviteToGroup(null)} />
       )}
       {session && <GroupInvitesInbox myUserId={session.user.id} onJoined={loadGroups} />}
+      {need2FA && session && myProfile?.email && (
+        <Email2FAGate
+          userId={session.user.id}
+          email={myProfile.email}
+          onPass={() => setTwoFaOk(true)}
+          onCancel={async () => { consume2FA(session.user.id); await supabase.auth.signOut(); }}
+        />
+      )}
       {showSettings && session && myProfile && (
         <SettingsDialog onClose={() => setShowSettings(false)} myUserId={session.user.id}
           displayName={myProfile.display_name} allowDms={myProfile.allow_dms ?? true}
