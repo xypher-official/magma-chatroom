@@ -15,6 +15,8 @@ import LiveLocationMap from "./LiveLocationMap";
 import ScheduleCallDialog from "./ScheduleCallDialog";
 import BlockedBanner from "./BlockedBanner";
 import { useBlocks } from "@/hooks/useBlocks";
+import { useKeyboardPref } from "@/hooks/useKeyboardPref";
+import SmartKeyboard from "./SmartKeyboard";
 
 export interface MessageRow {
   id: string;
@@ -91,6 +93,7 @@ const ChatWindow = ({
   const [showMenu, setShowMenu] = useState(false);
   const loc = useLocationShare(myUserId);
   const { iBlocked, blockedMe, block, unblock } = useBlocks(myUserId);
+  const kb = useKeyboardPref(myUserId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -332,6 +335,10 @@ const ChatWindow = ({
               <Send size={18} />
             </motion.button>
           </div>
+        )}
+        {/* Smart in-app keyboard (user setting) */}
+        {kb.enabled && !readOnly && !(contactUserId && (iBlocked(contactUserId) || blockedMe(contactUserId))) && (
+          <SmartKeyboard value={input} onChange={setInput} onSubmit={handleSend} theme={kb.theme} />
         )}
       </div>
       <LocationShareDialog open={showLoc} sharing={loc.sharing}
