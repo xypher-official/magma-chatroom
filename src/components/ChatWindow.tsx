@@ -325,7 +325,11 @@ const ChatWindow = ({
           const convId = messages[0]?.conversation_id;
           const id = await loc.start({ duration: d, conversationId: convId });
           if (id) {
-            onSendMessage("📍 Live location shared — tap the map icon to view");
+            const myName = profiles[myUserId]?.display_name ?? "Someone";
+            const link = `${window.location.origin}/share/loc/${id}`;
+            onSendMessage(
+              `📍 ${myName} shared his location.\nVisit the link below to see ${myName}'s location:\n${link}`
+            );
             setShowMap(true);
           }
           setShowLoc(false);
