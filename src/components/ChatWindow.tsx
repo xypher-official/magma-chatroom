@@ -56,6 +56,22 @@ interface ChatWindowProps {
 const formatTime = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+// Turn URLs into clickable links inside message bubbles
+const linkify = (text: string, isOwn: boolean) => {
+  const parts = text.split(/(\bhttps?:\/\/[^\s]+)/g);
+  return parts.map((p, i) => {
+    if (/^https?:\/\//.test(p)) {
+      return (
+        <a key={i} href={p} target="_blank" rel="noopener noreferrer"
+          className={`underline font-medium break-all ${isOwn ? "text-white/90 hover:text-white" : "text-primary hover:text-primary/80"}`}>
+          {p}
+        </a>
+      );
+    }
+    return <span key={i}>{p}</span>;
+  });
+};
+
 const ChatWindow = ({
   contactName, contactAvatar, contactAvatarUrl, contactOnline,
   contactIsVerified, contactIsOfficial, contactUserId,
@@ -231,7 +247,7 @@ const ChatWindow = ({
                   )}
                   {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
                   {msg.content && (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{msg.content}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{linkify(msg.content, isOwn)}</p>
                   )}
                   <p className={`text-[10px] mt-1 px-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                     {formatTime(msg.created_at)}
