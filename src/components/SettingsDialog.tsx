@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Settings as SettingsIcon, Upload, Sparkles, User, Globe, Bell, LogOut, Image as ImageIcon } from "lucide-react";
+import { X, Settings as SettingsIcon, Upload, Sparkles, User, Globe, Bell, LogOut, Image as ImageIcon, Keyboard, Mail, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useI18n } from "@/hooks/useI18n";
 import { LANGS, type Lang } from "@/i18n/translations";
+import { useKeyboardPref, type KbTheme } from "@/hooks/useKeyboardPref";
 
 interface Props {
   onClose: () => void;
@@ -26,8 +27,67 @@ const SettingsDialog = ({ onClose, myUserId, displayName, allowDms, avatarUrl, a
   const [genLoading, setGenLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"profile" | "language" | "account">("profile");
+  const [tab, setTab] = useState<"profile" | "language" | "keyboard" | "security" | "account">("profile");
+  const kb = useKeyboardPref(myUserId);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailVerified, setEmailVerified] = useState<string | null>(null);
+  const [codeInput, setCodeInput] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [verifBusy, setVerifBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("profiles")
+        .select("email, email_verified_at").eq("user_id", myUserId).maybeSingle();
+      if (data) {
+        setEmailInput((data as any).email ?? "");
+        setEmailVerified((data as any).email_verified_at ?? null);
+      }
+    })();
+  }, [myUserId]);
+
+  const sendCode = async () => {
+    if (!emailInput.trim()) return;
+    setVerifBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("email-verify", {
+        body: { action: "send", email: emailInput.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setCodeSent(true);
+      if (data?.dev_code) {
+        toast.success(`Código (dev): ${data.dev_code}`, { duration: 10000 });
+      } else {
+        toast.success("📧 Código enviado a tu correo");
+      }
+    } catch (e: any) { toast.error(e.message); }
+    finally { setVerifBusy(false); }
+  };
+
+  const confirmCode = async () => {
+    if (!codeInput.trim()) return;
+    setVerifBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("email-verify", {
+        body: { action: "verify", code: codeInput.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setEmailVerified(new Date().toISOString());
+      setCodeSent(false); setCodeInput("");
+      toast.success("✅ Correo verificado");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setVerifBusy(false); }
+  };
+
+  const removeEmail = async () => {
+    if (!confirm("¿Quitar verificación de correo? Tendrás solo contraseña al iniciar sesión.")) return;
+    await supabase.from("profiles").update({ email: null, email_verified_at: null }).eq("user_id", myUserId);
+    setEmailInput(""); setEmailVerified(null); setCodeSent(false);
+    toast.success("Correo removido");
+  };
 
   const uploadAvatar = async (file: File) => {
     setUploading(true);
@@ -76,8 +136,10 @@ const SettingsDialog = ({ onClose, myUserId, displayName, allowDms, avatarUrl, a
   const tabs: { key: "profile" | "language" | "account"; label: string; Icon: typeof User }[] = [
     { key: "profile", label: t("settings.profile"), Icon: User },
     { key: "language", label: t("settings.language"), Icon: Globe },
+    { key: "keyboard" as any, label: "Teclado", Icon: Keyboard as any },
+    { key: "security" as any, label: "Mail", Icon: ShieldCheck as any },
     { key: "account", label: t("settings.account"), Icon: Bell },
-  ];
+  ] as any;
 
   return (
     <AnimatePresence>
@@ -195,6 +257,85 @@ const SettingsDialog = ({ onClose, myUserId, displayName, allowDms, avatarUrl, a
                       <LogOut size={15} /> {t("settings.logout")}
                     </button>
                   )}
+                </motion.div>
+              )}
+
+              {tab === "keyboard" && (
+                <motion.div key="kb" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
+                  <label className="flex items-center justify-between p-4 rounded-xl bg-muted/40 cursor-pointer">
+                    <div className="pr-4">
+                      <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Keyboard size={14} className="text-primary" /> Teclado inteligente
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Activa un teclado animado con predicciones y emojis dentro del chat.
+                      </p>
+                    </div>
+                    <input type="checkbox" checked={kb.enabled}
+                      onChange={(e) => kb.update({ enabled: e.target.checked })}
+                      className="w-5 h-5 accent-primary" />
+                  </label>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Tema del teclado</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["magma","ice","neon","minimal"] as KbTheme[]).map((th) => (
+                        <button key={th} disabled={!kb.enabled}
+                          onClick={() => kb.update({ theme: th })}
+                          className={`px-3 py-3 rounded-xl border text-sm font-semibold capitalize transition-all ${
+                            kb.theme === th ? "border-primary bg-primary/10 magma-glow-sm" : "border-border bg-muted/30 hover:bg-muted/60"
+                          } disabled:opacity-40`}>
+                          {th}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {tab === "security" && (
+                <motion.div key="sec" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-4">
+                  <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20 p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Mail size={14} className="text-emerald-400" /> Correo de seguridad (opcional)
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Si añades y verificas un correo, tendrás que confirmarlo cada vez que inicies sesión.
+                      Sin correo, solo se usará tu contraseña.
+                    </p>
+                    <div className="flex gap-2">
+                      <input type="email" value={emailInput} onChange={(e) => setEmailInput(e.target.value)}
+                        placeholder="tu@correo.com"
+                        disabled={!!emailVerified}
+                        className="flex-1 px-3 py-2.5 rounded-xl bg-background/60 border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60" />
+                      {emailVerified ? (
+                        <span className="px-3 py-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+                          <CheckCircle2 size={14} /> Verificado
+                        </span>
+                      ) : (
+                        <button onClick={sendCode} disabled={verifBusy || !emailInput.trim()}
+                          className="px-3 py-2.5 rounded-xl bg-emerald-500 text-white text-xs font-bold disabled:opacity-50">
+                          {verifBusy ? "…" : codeSent ? "Reenviar" : "Enviar código"}
+                        </button>
+                      )}
+                    </div>
+                    {codeSent && !emailVerified && (
+                      <div className="flex gap-2">
+                        <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)}
+                          placeholder="Código de 6 dígitos" maxLength={6}
+                          className="flex-1 px-3 py-2.5 rounded-xl bg-background/60 border border-border text-foreground text-sm outline-none tracking-widest text-center font-mono" />
+                        <button onClick={confirmCode} disabled={verifBusy || codeInput.length < 4}
+                          className="px-4 py-2.5 rounded-xl magma-gradient text-primary-foreground text-xs font-bold disabled:opacity-50">
+                          Confirmar
+                        </button>
+                      </div>
+                    )}
+                    {emailVerified && (
+                      <button onClick={removeEmail}
+                        className="w-full py-2 rounded-xl bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-medium">
+                        Quitar correo
+                      </button>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
