@@ -55,41 +55,56 @@ const SharedLocationPage = () => {
 
   // Load sharer profile (public)
   useEffect(() => {
-    if (!shareId) { navigate("/"); return; }
+    if (!shareId) { setStage("login"); return; }
+    let cancelled = false;
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      // Find share's owner via location_shares (RLS allows participants once logged in)
-      if (!session) {
-        // try to look up the sharer name via a public RPC? Fallback: show generic
-        setStage("login");
-        return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        const session = data?.session;
+        if (!session) { setStage("login"); return; }
+        setMyUserId(session.user.id);
+        await afterLogin(session.user.id);
+      } catch (e) {
+        console.error("share boot error", e);
+        if (!cancelled) setStage("login");
       }
-      setMyUserId(session.user.id);
-      await afterLogin(session.user.id);
     })();
+    // Hard safety: never get stuck on the spinner for more than 6s
+    const safety = setTimeout(() => {
+      setStage((s) => (s === "loading" ? "login" : s));
+    }, 6000);
+    return () => { cancelled = true; clearTimeout(safety); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareId]);
 
   const afterLogin = async (uid: string) => {
-    const { data: share, error } = await supabase
-      .from("location_shares")
-      .select("user_id, active, conversation_id, group_id")
-      .eq("id", shareId!)
-      .maybeSingle();
-    if (error || !share) {
-      toast.error("Esta ubicación no existe o ya no está disponible");
-      navigate("/");
-      return;
+    try {
+      const { data: share, error } = await supabase
+        .from("location_shares")
+        .select("user_id, active, conversation_id, group_id")
+        .eq("id", shareId!)
+        .maybeSingle();
+      if (error) console.warn("share fetch", error);
+      const { data: me } = await supabase.from("profiles")
+        .select("user_id, display_name, username, avatar_initials, avatar_url")
+        .eq("user_id", uid).maybeSingle();
+      setMyProfile(me);
+      if (!share) {
+        // RLS may hide it (viewer not in conversation). Still show confirm with generic sharer.
+        setSharerProfile({ display_name: "alguien", username: "?", avatar_initials: "??" });
+        setStage("confirm");
+        return;
+      }
+      const { data: sharer } = await supabase.from("profiles")
+        .select("user_id, display_name, username, avatar_initials, avatar_url, is_verified")
+        .eq("user_id", share.user_id).maybeSingle();
+      setSharerProfile(sharer ?? { display_name: "alguien", username: "?", avatar_initials: "??" });
+      setStage("confirm");
+    } catch (e) {
+      console.error("afterLogin error", e);
+      setStage("confirm");
     }
-    const { data: sharer } = await supabase.from("profiles")
-      .select("user_id, display_name, username, avatar_initials, avatar_url, is_verified")
-      .eq("user_id", share.user_id).maybeSingle();
-    const { data: me } = await supabase.from("profiles")
-      .select("user_id, display_name, username, avatar_initials, avatar_url")
-      .eq("user_id", uid).maybeSingle();
-    setSharerProfile(sharer);
-    setMyProfile(me);
-    setStage("confirm");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
