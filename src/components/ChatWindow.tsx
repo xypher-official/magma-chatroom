@@ -17,6 +17,7 @@ import BlockedBanner from "./BlockedBanner";
 import { useBlocks } from "@/hooks/useBlocks";
 import { useKeyboardPref } from "@/hooks/useKeyboardPref";
 import SmartKeyboard from "./SmartKeyboard";
+import { useAutoTranslate } from "@/hooks/useAutoTranslate";
 
 export interface MessageRow {
   id: string;
@@ -72,6 +73,17 @@ const linkify = (text: string, isOwn: boolean) => {
     }
     return <span key={i}>{p}</span>;
   });
+};
+
+// Auto-translated message text. Keeps the bubble layout intact while the
+// translation resolves in the background.
+const TranslatedText = ({ text, isOwn }: { text: string; isOwn: boolean }) => {
+  const translated = useAutoTranslate(text);
+  return (
+    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">
+      {linkify(translated || text, isOwn)}
+    </p>
+  );
 };
 
 const ChatWindow = ({
@@ -251,7 +263,7 @@ const ChatWindow = ({
                   )}
                   {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
                   {msg.content && (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{linkify(msg.content, isOwn)}</p>
+                    <TranslatedText text={msg.content} isOwn={isOwn} />
                   )}
                   <p className={`text-[10px] mt-1 px-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                     {formatTime(msg.created_at)}
