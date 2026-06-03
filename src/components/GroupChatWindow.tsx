@@ -8,6 +8,14 @@ import { useI18n } from "@/hooks/useI18n";
 import EmojiPickerPopover from "./EmojiPickerPopover";
 import VoiceRecorder from "./VoiceRecorder";
 import VoiceMessageBubble from "./VoiceMessageBubble";
+import { useAutoTranslate } from "@/hooks/useAutoTranslate";
+
+const TranslatedGroupText = ({ text }: { text: string }) => {
+  const translated = useAutoTranslate(text);
+  return (
+    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{translated || text}</p>
+  );
+};
 
 interface GroupMsg { id: string; group_id: string; sender_id: string; content: string; is_system: boolean; created_at: string; media_url?: string | null; media_type?: string | null }
 interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; avatar_url?: string | null; owner_id: string; write_mode?: string }
@@ -135,7 +143,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
                   )}
                   {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
                   {msg.content && (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words px-1">{msg.content}</p>
+                    <TranslatedGroupText text={msg.content} />
                   )}
                   <p className={`text-[10px] mt-1 px-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>{fmt(msg.created_at)}</p>
                 </div>
