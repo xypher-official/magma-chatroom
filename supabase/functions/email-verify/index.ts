@@ -46,12 +46,18 @@ Deno.serve(async (req) => {
 
     if (action === "verify") {
       const code = String(body.code ?? "").trim();
-      const { data: row } = await admin.from("email_verifications")
+      // Fetch the most recent unconsumed codes for the user and match in JS.
+      // This is tolerant to StrictMode double-inserts and trimming issues.
+      const { data: rows } = await admin.from("email_verifications")
         .select("id, email, code, expires_at, consumed_at")
-        .eq("user_id", user.id).eq("code", code)
+        .eq("user_id", user.id)
         .is("consumed_at", null)
-        .order("created_at", { ascending: false }).limit(1).maybeSingle();
-      if (!row) return new Response(JSON.stringify({ error: "Código inválido" }), { status: 400, headers: corsHeaders });
+        .order("created_at", { ascending: false }).limit(5);
+      const row = (rows ?? []).find((r) => String(r.code).trim() === code);
+      if (!row) {
+        console.log("verify miss", { user: user.id, got: code, have: (rows ?? []).map(r => r.code) });
+        return new Response(JSON.stringify({ error: "Código inválido" }), { status: 400, headers: corsHeaders });
+      }
       if (new Date(row.expires_at).getTime() < Date.now()) {
         return new Response(JSON.stringify({ error: "Código expirado" }), { status: 400, headers: corsHeaders });
       }
