@@ -82,6 +82,7 @@ const ChatWindow = ({
 }: ChatWindowProps) => {
   const { t } = useI18n();
   const [input, setInput] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
   const [showAi, setShowAi] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
