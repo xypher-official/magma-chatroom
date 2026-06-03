@@ -324,6 +324,8 @@ const ChatWindow = ({
               type="text" value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setTimeout(() => setInputFocused(false), 150)}
               placeholder={t("chat.placeholder")}
               className="flex-1 px-4 py-2.5 rounded-xl bg-muted text-foreground placeholder:text-muted-foreground text-sm outline-none focus:ring-2 focus:ring-ring/30 transition-all"
             />
@@ -337,9 +339,13 @@ const ChatWindow = ({
           </div>
         )}
         {/* Smart in-app keyboard (user setting) */}
-        {kb.enabled && !readOnly && !(contactUserId && (iBlocked(contactUserId) || blockedMe(contactUserId))) && (
-          <SmartKeyboard value={input} onChange={setInput} onSubmit={handleSend} theme={kb.theme} />
-        )}
+        <AnimatePresence>
+          {kb.enabled && inputFocused && !readOnly && !(contactUserId && (iBlocked(contactUserId) || blockedMe(contactUserId))) && (
+            <div onMouseDown={(e) => e.preventDefault()} onTouchStart={(e) => e.stopPropagation()}>
+              <SmartKeyboard value={input} onChange={setInput} onSubmit={handleSend} theme={kb.theme} />
+            </div>
+          )}
+        </AnimatePresence>
       </div>
       <LocationShareDialog open={showLoc} sharing={loc.sharing}
         onClose={() => setShowLoc(false)}
