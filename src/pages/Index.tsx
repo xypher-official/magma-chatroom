@@ -148,6 +148,20 @@ const Index = () => {
         });
         loadConversations();
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
+        const m = payload.new as MessageRow;
+        setMessagesByConv((prev) => {
+          const list = prev[m.conversation_id] ?? [];
+          return { ...prev, [m.conversation_id]: list.map((x) => x.id === m.id ? m : x) };
+        });
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (payload) => {
+        const m = payload.old as MessageRow;
+        setMessagesByConv((prev) => {
+          const list = prev[m.conversation_id] ?? [];
+          return { ...prev, [m.conversation_id]: list.filter((x) => x.id !== m.id) };
+        });
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [session, loadProfiles, loadConversations, loadGroups]);
