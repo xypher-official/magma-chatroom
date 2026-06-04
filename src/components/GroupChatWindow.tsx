@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile } from "lucide-react";
+import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
@@ -17,7 +17,7 @@ const TranslatedGroupText = ({ text }: { text: string }) => {
   );
 };
 
-interface GroupMsg { id: string; group_id: string; sender_id: string; content: string; is_system: boolean; created_at: string; media_url?: string | null; media_type?: string | null }
+interface GroupMsg { id: string; group_id: string; sender_id: string; content: string; is_system: boolean; created_at: string; media_url?: string | null; media_type?: string | null; edited_at?: string | null; deleted_at?: string | null }
 interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; avatar_url?: string | null; owner_id: string; write_mode?: string }
 interface Profile { user_id: string; display_name: string; is_verified: boolean; is_official: boolean; avatar_url?: string | null }
 type Role = "owner" | "moderator" | "member";
@@ -44,6 +44,8 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,6 +58,10 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
     const ch = supabase.channel(`group-${group.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "group_messages", filter: `group_id=eq.${group.id}` },
         (p) => setMessages((prev) => prev.some((m) => m.id === (p.new as any).id) ? prev : [...prev, p.new as GroupMsg]))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "group_messages", filter: `group_id=eq.${group.id}` },
+        (p) => setMessages((prev) => prev.map((m) => m.id === (p.new as any).id ? (p.new as GroupMsg) : m)))
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "group_messages", filter: `group_id=eq.${group.id}` },
+        (p) => setMessages((prev) => prev.filter((m) => m.id !== (p.old as any).id)))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [group.id, myUserId, onMyRoleResolved]);
@@ -122,6 +128,23 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
 
       <div className="flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ember-bg">
         <AnimatePresence initial={false}>
+  const deleteMsg = async (id: string) => {
+    if (!confirm("Delete this message?")) return;
+    const { error } = await supabase.from("group_messages")
+      .update({ deleted_at: new Date().toISOString(), content: "", media_url: null, media_type: null } as any)
+      .eq("id", id);
+    if (error) toast.error(error.message);
+  };
+  const saveEdit = async (id: string) => {
+    const next = editingText.trim();
+    if (!next) { setEditingId(null); return; }
+    const { error } = await supabase.from("group_messages")
+      .update({ content: next, edited_at: new Date().toISOString() } as any)
+      .eq("id", id);
+    if (error) toast.error(error.message);
+    setEditingId(null);
+  };
+
           {messages.map((msg) => {
             const isOwn = msg.sender_id === myUserId;
             const sender = profiles[msg.sender_id];
