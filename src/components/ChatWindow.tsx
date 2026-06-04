@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff } from "lucide-react";
+import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser } from "lucide-react";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,8 @@ export interface MessageRow {
   created_at: string;
   media_url?: string | null;
   media_type?: string | null;
+  edited_at?: string | null;
+  deleted_at?: string | null;
 }
 
 interface Profile {
@@ -108,6 +110,8 @@ const ChatWindow = ({
   const { iBlocked, blockedMe, block, unblock } = useBlocks(myUserId);
   const kb = useKeyboardPref(myUserId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -125,9 +129,29 @@ const ChatWindow = ({
 
   const deleteMessage = async (id: string) => {
     if (!confirm("Delete this message?")) return;
-    const { error } = await supabase.from("messages").delete().eq("id", id);
+    // Soft-delete so other participants see "This Message Was Eliminated 🔏"
+    const { error } = await supabase.from("messages")
+      .update({ deleted_at: new Date().toISOString(), content: "", media_url: null, media_type: null })
+      .eq("id", id);
     if (error) toast.error(error.message);
-    else toast.success("Message deleted");
+  };
+  const saveEdit = async (id: string) => {
+    const next = editingText.trim();
+    if (!next) { setEditingId(null); return; }
+    const { error } = await supabase.from("messages")
+      .update({ content: next, edited_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) toast.error(error.message);
+    setEditingId(null);
+  };
+  const clearChatForMe = async () => {
+    if (!confirm("¿Vaciar este chat? Se eliminarán todos tus mensajes en él.")) return;
+    const convId = messages[0]?.conversation_id;
+    if (!convId) return;
+    const { error } = await supabase.from("messages").delete()
+      .eq("conversation_id", convId).eq("sender_id", myUserId);
+    if (error) toast.error(error.message);
+    else toast.success("🧹 Chat vaciado");
   };
 
   const generateAndSend = async () => {
@@ -215,6 +239,10 @@ const ChatWindow = ({
                     <Ban size={14} /> Bloquear a {contactName}
                   </button>
                 )}
+                <button onClick={() => { setShowMenu(false); clearChatForMe(); }}
+                  className="w-full px-4 py-3 text-left text-sm hover:bg-muted flex items-center gap-2 text-amber-500 border-t border-border">
+                  <Eraser size={14} /> Vaciar chat
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
