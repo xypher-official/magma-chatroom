@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { Menu, X, Pencil, icons as LucideIcons } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
+import { useAutoTranslate } from "@/hooks/useAutoTranslate";
+import { T } from "./T";
 
 interface Page {
   id: string;
@@ -115,7 +117,7 @@ const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
                   <div className="flex-1 text-left min-w-0">
                     <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
                       <IconByName name={p.icon} size={13} />
-                      {p.title || p.slug}
+                      <T>{p.title || p.slug}</T>
                     </p>
                     <p className="text-[10px] text-muted-foreground truncate">/{p.slug}{!p.enabled && " · oculto"}</p>
                   </div>
@@ -130,21 +132,29 @@ const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
               onClick={(e) => e.stopPropagation()}
               className="flex-1 h-full overflow-y-auto scrollbar-magma p-6 md:p-10"
             >
-              <div className="max-w-2xl mx-auto">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-2xl magma-gradient flex items-center justify-center text-2xl">{active.emoji}</div>
-                  <h1 className="text-2xl md:text-3xl font-bold magma-gradient-text">{active.title}</h1>
-                </div>
-                <article
-                  className="prose prose-invert prose-sm md:prose-base max-w-none text-foreground"
-                  dangerouslySetInnerHTML={{ __html: renderHtml(active.content) }}
-                />
-              </div>
+              <ActivePageContent page={active} />
             </motion.div>
           )}
         </motion.div>
       )}
     </>
+  );
+};
+
+const ActivePageContent = ({ page }: { page: Page }) => {
+  const translatedTitle = useAutoTranslate(page.title);
+  const translatedContent = useAutoTranslate(page.content);
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-12 h-12 rounded-2xl magma-gradient flex items-center justify-center text-2xl">{page.emoji}</div>
+        <h1 className="text-2xl md:text-3xl font-bold magma-gradient-text">{translatedTitle || page.title}</h1>
+      </div>
+      <article
+        className="prose prose-invert prose-sm md:prose-base max-w-none text-foreground"
+        dangerouslySetInnerHTML={{ __html: renderHtml(translatedContent || page.content) }}
+      />
+    </div>
   );
 };
 
