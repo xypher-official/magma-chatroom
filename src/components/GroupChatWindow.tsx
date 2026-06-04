@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile } from "lucide-react";
+import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
@@ -17,7 +17,7 @@ const TranslatedGroupText = ({ text }: { text: string }) => {
   );
 };
 
-interface GroupMsg { id: string; group_id: string; sender_id: string; content: string; is_system: boolean; created_at: string; media_url?: string | null; media_type?: string | null }
+interface GroupMsg { id: string; group_id: string; sender_id: string; content: string; is_system: boolean; created_at: string; media_url?: string | null; media_type?: string | null; edited_at?: string | null; deleted_at?: string | null }
 interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; avatar_url?: string | null; owner_id: string; write_mode?: string }
 interface Profile { user_id: string; display_name: string; is_verified: boolean; is_official: boolean; avatar_url?: string | null }
 type Role = "owner" | "moderator" | "member";
@@ -44,6 +44,8 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,6 +58,10 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
     const ch = supabase.channel(`group-${group.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "group_messages", filter: `group_id=eq.${group.id}` },
         (p) => setMessages((prev) => prev.some((m) => m.id === (p.new as any).id) ? prev : [...prev, p.new as GroupMsg]))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "group_messages", filter: `group_id=eq.${group.id}` },
+        (p) => setMessages((prev) => prev.map((m) => m.id === (p.new as any).id ? (p.new as GroupMsg) : m)))
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "group_messages", filter: `group_id=eq.${group.id}` },
+        (p) => setMessages((prev) => prev.filter((m) => m.id !== (p.old as any).id)))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [group.id, myUserId, onMyRoleResolved]);
@@ -94,6 +100,23 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
     finally { setAiBusy(false); }
   };
 
+  const deleteMsg = async (id: string) => {
+    if (!confirm("Delete this message?")) return;
+    const { error } = await supabase.from("group_messages")
+      .update({ deleted_at: new Date().toISOString(), content: "", media_url: null, media_type: null } as any)
+      .eq("id", id);
+    if (error) toast.error(error.message);
+  };
+  const saveEdit = async (id: string) => {
+    const next = editingText.trim();
+    if (!next) { setEditingId(null); return; }
+    const { error } = await supabase.from("group_messages")
+      .update({ content: next, edited_at: new Date().toISOString() } as any)
+      .eq("id", id);
+    if (error) toast.error(error.message);
+    setEditingId(null);
+  };
+
   return (
     <div className="h-full flex flex-col bg-background">
       <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
@@ -125,27 +148,55 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
           {messages.map((msg) => {
             const isOwn = msg.sender_id === myUserId;
             const sender = profiles[msg.sender_id];
-            const hasImage = msg.media_url && msg.media_type?.startsWith("image");
-            const hasAudio = msg.media_url && msg.media_type === "audio";
+            const isDeleted = !!msg.deleted_at;
+            const hasImage = !isDeleted && msg.media_url && msg.media_type?.startsWith("image");
+            const hasAudio = !isDeleted && msg.media_url && msg.media_type === "audio";
+            const isEditing = editingId === msg.id;
+            const canEditDelete = isOwn || isAdmin || myRole === "owner" || myRole === "moderator";
             return (
               <motion.div key={msg.id} initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[75%] px-3 py-2 rounded-2xl overflow-hidden ${isOwn ? "magma-gradient text-primary-foreground rounded-br-md magma-glow-sm" : "glass-panel-strong text-foreground rounded-bl-md"}`}>
+                <div className={`group relative max-w-[75%] px-3 py-2 rounded-2xl overflow-hidden ${isDeleted ? "bg-muted/40 text-muted-foreground italic border border-border rounded-bl-md" : isOwn ? "magma-gradient text-primary-foreground rounded-br-md magma-glow-sm" : "glass-panel-strong text-foreground rounded-bl-md"}`}>
+                  {!isDeleted && canEditDelete && (
+                    <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isOwn && !msg.media_url && (
+                        <button onClick={() => { setEditingId(msg.id); setEditingText(msg.content); }}
+                          className="bg-primary text-primary-foreground rounded-full p-1 shadow-lg"><Pencil size={11}/></button>
+                      )}
+                      <button onClick={() => deleteMsg(msg.id)} className="bg-destructive text-destructive-foreground rounded-full p-1 shadow-lg">
+                        <Trash2 size={11}/>
+                      </button>
+                    </div>
+                  )}
                   {!isOwn && (
                     <p className="text-xs font-semibold mb-1 px-1 text-fuchsia-400 flex items-center">
                       <span>{sender?.display_name ?? "?"}</span>
                       <Badges isVerified={sender?.is_verified} isOfficial={sender?.is_official} size={11} />
                     </p>
                   )}
+                  {isDeleted ? (
+                    <p className="text-sm px-1 italic">🔏 This Message Was Eliminated</p>
+                  ) : (<>
                   {hasImage && (
                     <img src={msg.media_url!} alt="" className="rounded-xl mb-1 max-h-72 w-full object-cover" loading="lazy" />
                   )}
                   {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
-                  {msg.content && (
+                  {isEditing ? (
+                    <div className="flex gap-1 items-center min-w-[180px]">
+                      <input autoFocus value={editingText} onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(msg.id); if (e.key === "Escape") setEditingId(null); }}
+                        className="flex-1 px-2 py-1 rounded-md bg-background/70 text-foreground text-sm outline-none ring-1 ring-primary/40" />
+                      <button onClick={() => saveEdit(msg.id)} className="p-1 rounded-md bg-primary text-primary-foreground"><Check size={12}/></button>
+                      <button onClick={() => setEditingId(null)} className="p-1 rounded-md hover:bg-muted"><X size={12}/></button>
+                    </div>
+                  ) : msg.content && (
                     <TranslatedGroupText text={msg.content} />
                   )}
-                  <p className={`text-[10px] mt-1 px-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>{fmt(msg.created_at)}</p>
+                  </>)}
+                  <p className={`text-[10px] mt-1 px-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                    {msg.edited_at && !isDeleted && <span className="opacity-70 mr-1 italic">Editado ·</span>}{fmt(msg.created_at)}
+                  </p>
                 </div>
               </motion.div>
             );

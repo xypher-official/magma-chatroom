@@ -21,6 +21,7 @@ import SiteEffectsLayer from "@/components/SiteEffectsLayer";
 import GroupInvitesInbox from "@/components/GroupInvitesInbox";
 import InviteToGroupDialog from "@/components/InviteToGroupDialog";
 import Email2FAGate, { passed2FA, consume2FA } from "@/components/Email2FAGate";
+import SiteModeGate from "@/components/SiteModeGate";
 import { useWebRTCCall } from "@/hooks/useWebRTCCall";
 import { useNotifications } from "@/hooks/useNotifications";
 import { toast } from "sonner";
@@ -147,6 +148,20 @@ const Index = () => {
         });
         loadConversations();
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
+        const m = payload.new as MessageRow;
+        setMessagesByConv((prev) => {
+          const list = prev[m.conversation_id] ?? [];
+          return { ...prev, [m.conversation_id]: list.map((x) => x.id === m.id ? m : x) };
+        });
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (payload) => {
+        const m = payload.old as MessageRow;
+        setMessagesByConv((prev) => {
+          const list = prev[m.conversation_id] ?? [];
+          return { ...prev, [m.conversation_id]: list.filter((x) => x.id !== m.id) };
+        });
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [session, loadProfiles, loadConversations, loadGroups]);
@@ -216,6 +231,7 @@ const Index = () => {
     <div className="min-h-screen bg-background relative overflow-hidden">
       <LavaParticles />
       <SiteEffectsLayer />
+      <SiteModeGate isAdmin={isAdmin} myUserId={session?.user.id}>
       <AnimatePresence mode="wait">
         {!session ? (
           <motion.div key="auth" exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}>
@@ -224,9 +240,13 @@ const Index = () => {
         ) : (
           <motion.div key="chat" initial={{ opacity: 0, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }} className="relative z-10 h-screen flex flex-col">
-            <SitePagesMenu isAdmin={isAdmin} onEditCms={() => setShowAdmin(true)} />
-            <SiteBanner />
-            <LiveEventBar />
+            {isAdmin || document.documentElement.dataset.sitePrivate !== "1" ? (
+              <>
+                <SitePagesMenu isAdmin={isAdmin} onEditCms={() => setShowAdmin(true)} />
+                <SiteBanner />
+                <LiveEventBar />
+              </>
+            ) : null}
             <div className="flex-1 flex min-h-0">
               <div className={`w-full md:w-80 lg:w-96 flex-shrink-0 ${showRightPane ? "hidden md:block" : "block"}`}>
                 <ChatSidebar
@@ -276,6 +296,7 @@ const Index = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      </SiteModeGate>
 
       {/* Call overlay (always mounted when session exists) */}
       {session && (

@@ -126,17 +126,21 @@ const SharedLocationPage = () => {
 
   const confirmIdentity = async () => {
     setStage("map");
-    // start sharing my live location too so the sharer sees me back
+    // Always start sharing my own location so the map has at least one ping
+    // even when RLS hides the share row from the viewer.
     if (myUserId && shareId) {
-      const { data: share } = await supabase.from("location_shares")
-        .select("conversation_id, group_id")
-        .eq("id", shareId).maybeSingle();
-      if (share) {
+      try {
+        const { data: share } = await supabase.from("location_shares")
+          .select("conversation_id, group_id")
+          .eq("id", shareId).maybeSingle();
         await myLoc.start({
           duration: "1h",
-          conversationId: share.conversation_id ?? undefined,
-          groupId: share.group_id ?? undefined,
+          conversationId: share?.conversation_id ?? undefined,
+          groupId: share?.group_id ?? undefined,
         });
+      } catch (e) {
+        console.warn("could not bind to share, sharing anyway", e);
+        await myLoc.start({ duration: "1h" });
       }
     }
   };
@@ -144,11 +148,23 @@ const SharedLocationPage = () => {
   // Load pings + subscribe (map stage)
   useEffect(() => {
     if (stage !== "map" || !shareId) return;
+    // Local fallback: if RLS or empty pings keep the map blank, at least show
+    // my own browser geolocation so the user always sees a map.
+    let geoId: number | null = null;
+    if (navigator.geolocation) {
+      geoId = navigator.geolocation.watchPosition((pos) => {
+        setPings((prev) => {
+          const others = prev.filter((p) => !p.isMe);
+          return [...others, { uid: "me-local", name: "Tú", isMe: true,
+            lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }];
+        });
+      }, () => {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+    }
     const refresh = async () => {
       const { data: share } = await supabase.from("location_shares")
         .select("conversation_id, group_id, user_id")
         .eq("id", shareId).maybeSingle();
-      if (!share) return;
+      if (!share) return; // keep local pings only
       let q = supabase.from("location_shares").select("id, user_id").eq("active", true);
       if (share.conversation_id) q = q.eq("conversation_id", share.conversation_id);
       else if (share.group_id) q = q.eq("group_id", share.group_id);
@@ -164,7 +180,13 @@ const SharedLocationPage = () => {
         return { uid: s.user_id, name: pr?.display_name ?? "?", isMe: s.user_id === myUserId,
           lat: (p as Ping).lat, lng: (p as Ping).lng, acc: (p as Ping).accuracy };
       }));
-      setPings(items.filter(Boolean) as any);
+      const remote = items.filter(Boolean) as any[];
+      // Merge with any local-only "me" marker if there is no remote one for me
+      setPings((prev) => {
+        const localMe = prev.find((p) => p.uid === "me-local");
+        const hasRemoteMe = remote.some((p) => p.isMe);
+        return hasRemoteMe || !localMe ? remote : [...remote, localMe];
+      });
     };
     refresh();
     const ch = supabase.channel(`shared-${shareId}`)
@@ -172,7 +194,10 @@ const SharedLocationPage = () => {
       .on("postgres_changes", { event: "*", schema: "public", table: "location_shares" }, refresh)
       .subscribe();
     const iv = setInterval(refresh, 8000);
-    return () => { supabase.removeChannel(ch); clearInterval(iv); };
+    return () => {
+      supabase.removeChannel(ch); clearInterval(iv);
+      if (geoId !== null && navigator.geolocation) navigator.geolocation.clearWatch(geoId);
+    };
   }, [stage, shareId, myUserId]);
 
   if (stage === "loading") {

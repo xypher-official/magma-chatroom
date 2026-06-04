@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff } from "lucide-react";
+import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser } from "lucide-react";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,8 @@ export interface MessageRow {
   created_at: string;
   media_url?: string | null;
   media_type?: string | null;
+  edited_at?: string | null;
+  deleted_at?: string | null;
 }
 
 interface Profile {
@@ -108,6 +110,8 @@ const ChatWindow = ({
   const { iBlocked, blockedMe, block, unblock } = useBlocks(myUserId);
   const kb = useKeyboardPref(myUserId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -125,9 +129,29 @@ const ChatWindow = ({
 
   const deleteMessage = async (id: string) => {
     if (!confirm("Delete this message?")) return;
-    const { error } = await supabase.from("messages").delete().eq("id", id);
+    // Soft-delete so other participants see "This Message Was Eliminated 🔏"
+    const { error } = await supabase.from("messages")
+      .update({ deleted_at: new Date().toISOString(), content: "", media_url: null, media_type: null } as any)
+      .eq("id", id);
     if (error) toast.error(error.message);
-    else toast.success("Message deleted");
+  };
+  const saveEdit = async (id: string) => {
+    const next = editingText.trim();
+    if (!next) { setEditingId(null); return; }
+    const { error } = await supabase.from("messages")
+      .update({ content: next, edited_at: new Date().toISOString() } as any)
+      .eq("id", id);
+    if (error) toast.error(error.message);
+    setEditingId(null);
+  };
+  const clearChatForMe = async () => {
+    if (!confirm("¿Vaciar este chat? Se eliminarán todos tus mensajes en él.")) return;
+    const convId = messages[0]?.conversation_id;
+    if (!convId) return;
+    const { error } = await supabase.from("messages").delete()
+      .eq("conversation_id", convId).eq("sender_id", myUserId);
+    if (error) toast.error(error.message);
+    else toast.success("🧹 Chat vaciado");
   };
 
   const generateAndSend = async () => {
@@ -215,6 +239,10 @@ const ChatWindow = ({
                     <Ban size={14} /> Bloquear a {contactName}
                   </button>
                 )}
+                <button onClick={() => { setShowMenu(false); clearChatForMe(); }}
+                  className="w-full px-4 py-3 text-left text-sm hover:bg-muted flex items-center gap-2 text-amber-500 border-t border-border">
+                  <Eraser size={14} /> Vaciar chat
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -226,8 +254,10 @@ const ChatWindow = ({
           {messages.map((msg) => {
             const isOwn = msg.sender_id === myUserId;
             const senderProfile = profiles[msg.sender_id];
-            const hasImage = msg.media_url && msg.media_type?.startsWith("image");
-            const hasAudio = msg.media_url && msg.media_type === "audio";
+            const isDeleted = !!msg.deleted_at;
+            const hasImage = !isDeleted && msg.media_url && msg.media_type?.startsWith("image");
+            const hasAudio = !isDeleted && msg.media_url && msg.media_type === "audio";
+            const isEditing = editingId === msg.id;
             return (
               <motion.div
                 key={msg.id}
@@ -238,19 +268,28 @@ const ChatWindow = ({
               >
                 <div
                   className={`group relative max-w-[75%] px-3 py-2 rounded-2xl overflow-hidden ${
-                    isOwn
+                    isDeleted
+                      ? "bg-muted/40 text-muted-foreground italic border border-border rounded-bl-md"
+                      : isOwn
                       ? "magma-gradient text-primary-foreground rounded-br-md magma-glow-sm"
                       : msg.is_system
                         ? "bg-gradient-to-br from-sky-500/20 to-sky-700/20 border border-sky-500/30 text-foreground rounded-bl-md"
                         : "glass-panel-strong text-foreground rounded-bl-md"
                   }`}
                 >
-                  {canDeleteMessages && (
-                    <button onClick={() => deleteMessage(msg.id)}
-                      title="Delete message"
-                      className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive text-destructive-foreground rounded-full p-1 shadow-lg">
-                      <Trash2 size={11} />
-                    </button>
+                  {!isDeleted && (isOwn || canDeleteMessages) && (
+                    <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isOwn && !msg.media_url && (
+                        <button onClick={() => { setEditingId(msg.id); setEditingText(msg.content); }}
+                          title="Edit" className="bg-primary text-primary-foreground rounded-full p-1 shadow-lg">
+                          <Pencil size={11} />
+                        </button>
+                      )}
+                      <button onClick={() => deleteMessage(msg.id)} title="Delete"
+                        className="bg-destructive text-destructive-foreground rounded-full p-1 shadow-lg">
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
                   )}
                   {!isOwn && (
                     <p className={`text-xs font-semibold mb-1 px-1 flex items-center ${msg.is_system ? "text-sky-400" : "text-primary"}`}>
@@ -258,14 +297,27 @@ const ChatWindow = ({
                       <Badges isVerified={senderProfile?.is_verified} isOfficial={senderProfile?.is_official} size={11} />
                     </p>
                   )}
+                  {isDeleted ? (
+                    <p className="text-sm px-1 italic">🔏 This Message Was Eliminated</p>
+                  ) : (<>
                   {hasImage && (
                     <img src={msg.media_url!} alt="" className="rounded-xl mb-1 max-h-72 w-full object-cover" loading="lazy" />
                   )}
                   {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
-                  {msg.content && (
+                  {isEditing ? (
+                    <div className="flex gap-1 items-center min-w-[180px]">
+                      <input autoFocus value={editingText} onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(msg.id); if (e.key === "Escape") setEditingId(null); }}
+                        className="flex-1 px-2 py-1 rounded-md bg-background/70 text-foreground text-sm outline-none ring-1 ring-primary/40" />
+                      <button onClick={() => saveEdit(msg.id)} className="p-1 rounded-md bg-primary text-primary-foreground"><Check size={12}/></button>
+                      <button onClick={() => setEditingId(null)} className="p-1 rounded-md hover:bg-muted"><X size={12}/></button>
+                    </div>
+                  ) : msg.content && (
                     <TranslatedText text={msg.content} isOwn={isOwn} />
                   )}
+                  </>)}
                   <p className={`text-[10px] mt-1 px-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                    {msg.edited_at && !isDeleted && <span className="opacity-70 mr-1 italic">Editado ·</span>}
                     {formatTime(msg.created_at)}
                   </p>
                 </div>

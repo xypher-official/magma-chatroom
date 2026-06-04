@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Icons from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { T } from "./T";
 
 interface Banner { enabled: boolean; message: string; link: string | null; color: string; cta_label?: string; icon?: string; position?: string }
 
@@ -38,11 +39,11 @@ const SiteBanner = () => {
           className={`relative z-30 px-4 py-2 text-white text-sm font-medium bg-gradient-to-r ${colorMap[banner!.color] ?? colorMap.amber} flex items-center justify-center gap-3 shadow-lg`}
         >
           <IconCmp size={16} className="shrink-0" />
-          <span className="truncate">{banner!.message}</span>
+          <T className="truncate">{banner!.message}</T>
           {banner!.link && (
             <a href={banner!.link} target={banner!.link.startsWith("http") ? "_blank" : undefined} rel="noreferrer"
               className="ml-2 px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 text-xs font-bold backdrop-blur transition-colors shrink-0">
-              {banner!.cta_label || "Open"} →
+              <T>{banner!.cta_label || "Open"}</T> →
             </a>
           )}
           <button onClick={() => setDismissed(true)} className="ml-auto p-1 rounded hover:bg-white/20" aria-label="Cerrar">

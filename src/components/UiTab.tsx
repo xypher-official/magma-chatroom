@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Save, Palette, Type, FilePlus, Trash2, icons as LucideIcons } from "lucide-react";
+import { Save, Palette, Type, FilePlus, Trash2, icons as LucideIcons, ShieldAlert, Wrench, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -53,8 +53,41 @@ const UiTab = () => {
 
   const iconExists = (name: string) => !!(LucideIcons as any)[name];
 
+  const currentMode = (settings.find((s) => s.key === "site.mode")?.value ?? "").toLowerCase();
+  const setMode = async (mode: string) => {
+    const { error } = await supabase.from("ui_settings").upsert(
+      { key: "site.mode", value: mode, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) toast.error(error.message);
+    else { toast.success(mode ? `🌋 Modo "${mode}" activado` : "✅ Modo normal"); reload(); }
+  };
+
   return (
     <div className="space-y-8">
+      <section>
+        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-foreground">
+          <ShieldAlert size={16} className="text-primary" /> Modo del sitio
+        </h3>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            ["", "Público", Globe, "from-emerald-500 to-teal-500"],
+            ["private", "Privado", ShieldAlert, "from-amber-500 to-orange-600"],
+            ["maintenance", "Mantenimiento", Wrench, "from-rose-500 to-red-700"],
+          ] as const).map(([val, label, Icon, grad]) => (
+            <button key={val || "public"} onClick={() => setMode(val)}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                currentMode === val ? `border-primary bg-gradient-to-br ${grad} text-white shadow-lg` : "border-border bg-muted/30 hover:border-primary/40"
+              }`}>
+              <Icon size={16} className="mb-1" />
+              <p className="text-xs font-bold">{label}</p>
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+          <strong>Privado:</strong> oculta secciones y solo permite chats con tus contactos.<br/>
+          <strong>Mantenimiento:</strong> bloquea el sitio para todos excepto admins.
+        </p>
+      </section>
+
       <section>
         <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-foreground">
           <Palette size={16} className="text-primary" /> Tema (HSL)
