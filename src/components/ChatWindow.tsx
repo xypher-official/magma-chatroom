@@ -131,7 +131,7 @@ const ChatWindow = ({
     if (!confirm("Delete this message?")) return;
     // Soft-delete so other participants see "This Message Was Eliminated 🔏"
     const { error } = await supabase.from("messages")
-      .update({ deleted_at: new Date().toISOString(), content: "", media_url: null, media_type: null })
+      .update({ deleted_at: new Date().toISOString(), content: "", media_url: null, media_type: null } as any)
       .eq("id", id);
     if (error) toast.error(error.message);
   };
@@ -139,7 +139,7 @@ const ChatWindow = ({
     const next = editingText.trim();
     if (!next) { setEditingId(null); return; }
     const { error } = await supabase.from("messages")
-      .update({ content: next, edited_at: new Date().toISOString() })
+      .update({ content: next, edited_at: new Date().toISOString() } as any)
       .eq("id", id);
     if (error) toast.error(error.message);
     setEditingId(null);
