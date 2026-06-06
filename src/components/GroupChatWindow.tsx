@@ -59,9 +59,9 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
       .then(({ count }) => setMemberCount(count ?? 0));
     supabase.from("group_member_roles").select("role").eq("group_id", group.id).eq("user_id", myUserId).maybeSingle()
       .then(({ data }) => { const r = (data as any)?.role ?? null; setMyRole(r); onMyRoleResolved?.(r); });
-    const loadChannels = () => supabase.from("group_channels" as any).select("*").eq("group_id", group.id).order("position").order("created_at")
+    const loadChannels = () => (supabase.from("group_channels" as any) as any).select("*").eq("group_id", group.id).order("position").order("created_at")
       .then(({ data }) => {
-        const list = (data as Channel[]) ?? [];
+        const list = ((data as unknown) as Channel[]) ?? [];
         setChannels(list);
         setActiveChannel((cur) => cur && list.some(c => c.id === cur) ? cur : (list[0]?.id ?? null));
       });
