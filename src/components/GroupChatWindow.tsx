@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check } from "lucide-react";
+import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
@@ -17,7 +17,8 @@ const TranslatedGroupText = ({ text }: { text: string }) => {
   );
 };
 
-interface GroupMsg { id: string; group_id: string; sender_id: string; content: string; is_system: boolean; created_at: string; media_url?: string | null; media_type?: string | null; edited_at?: string | null; deleted_at?: string | null }
+interface GroupMsg { id: string; group_id: string; sender_id: string; content: string; is_system: boolean; created_at: string; media_url?: string | null; media_type?: string | null; edited_at?: string | null; deleted_at?: string | null; channel_id?: string | null }
+interface Channel { id: string; group_id: string; name: string; position: number }
 interface GroupInfo { id: string; name: string; description: string; avatar_initials: string; avatar_url?: string | null; owner_id: string; write_mode?: string }
 interface Profile { user_id: string; display_name: string; is_verified: boolean; is_official: boolean; avatar_url?: string | null }
 type Role = "owner" | "moderator" | "member";
@@ -46,6 +47,9 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const [showEmoji, setShowEmoji] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [activeChannel, setActiveChannel] = useState<string | null>(null);
+  const [showChannels, setShowChannels] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,6 +59,13 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
       .then(({ count }) => setMemberCount(count ?? 0));
     supabase.from("group_member_roles").select("role").eq("group_id", group.id).eq("user_id", myUserId).maybeSingle()
       .then(({ data }) => { const r = (data as any)?.role ?? null; setMyRole(r); onMyRoleResolved?.(r); });
+    const loadChannels = () => (supabase.from("group_channels" as any) as any).select("*").eq("group_id", group.id).order("position").order("created_at")
+      .then(({ data }) => {
+        const list = ((data as unknown) as Channel[]) ?? [];
+        setChannels(list);
+        setActiveChannel((cur) => cur && list.some(c => c.id === cur) ? cur : (list[0]?.id ?? null));
+      });
+    loadChannels();
     const ch = supabase.channel(`group-${group.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "group_messages", filter: `group_id=eq.${group.id}` },
         (p) => setMessages((prev) => prev.some((m) => m.id === (p.new as any).id) ? prev : [...prev, p.new as GroupMsg]))
@@ -62,6 +73,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
         (p) => setMessages((prev) => prev.map((m) => m.id === (p.new as any).id ? (p.new as GroupMsg) : m)))
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "group_messages", filter: `group_id=eq.${group.id}` },
         (p) => setMessages((prev) => prev.filter((m) => m.id !== (p.old as any).id)))
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_channels", filter: `group_id=eq.${group.id}` }, loadChannels)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [group.id, myUserId, onMyRoleResolved]);
@@ -78,7 +90,8 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
     const { error } = await supabase.from("group_messages").insert({
       group_id: group.id, sender_id: myUserId, content,
       media_url: mediaUrl ?? null, media_type: mediaType ?? null,
-    });
+      channel_id: activeChannel,
+    } as any);
     if (error) toast.error(error.message); else {
       await supabase.from("groups").update({ last_message_at: new Date().toISOString() }).eq("id", group.id);
       if (!contentOverride) setInput("");
@@ -117,19 +130,80 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
     setEditingId(null);
   };
 
+  const canManageChannels = isAdmin || myRole === "owner" || myRole === "moderator";
+  const createChannel = async () => {
+    const name = prompt("Channel name (a-z, 0-9, -)")?.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
+    if (!name) return;
+    const { error } = await supabase.from("group_channels" as any).insert({ group_id: group.id, name, position: channels.length });
+    if (error) toast.error(error.message);
+  };
+  const renameChannel = async (c: Channel) => {
+    const name = prompt("Rename channel", c.name)?.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
+    if (!name || name === c.name) return;
+    const { error } = await supabase.from("group_channels" as any).update({ name }).eq("id", c.id);
+    if (error) toast.error(error.message);
+  };
+  const deleteChannel = async (c: Channel) => {
+    if (channels.length <= 1) { toast.error("Group needs at least one channel"); return; }
+    if (!confirm(`Delete #${c.name}? Messages will remain but become orphaned.`)) return;
+    const { error } = await supabase.from("group_channels" as any).delete().eq("id", c.id);
+    if (error) toast.error(error.message);
+  };
+
+  const visibleMessages = messages.filter((m) => activeChannel ? m.channel_id === activeChannel : !m.channel_id);
+  const activeChannelName = channels.find(c => c.id === activeChannel)?.name ?? "general";
+
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex bg-background">
+      {/* Channels sidebar (Discord-style) */}
+      <AnimatePresence>
+        {showChannels && (
+          <motion.aside initial={{ x: -240, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -240, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            className="w-56 flex-shrink-0 border-r border-border glass-panel-strong flex flex-col">
+            <div className="px-3 py-3 border-b border-border flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Channels</p>
+              {canManageChannels && (
+                <button onClick={createChannel} className="p-1 rounded hover:bg-primary/15 text-primary"><Plus size={14}/></button>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-magma p-2 space-y-0.5">
+              {channels.map((c) => (
+                <div key={c.id} className={`group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer text-sm transition-colors ${activeChannel === c.id ? "bg-primary/15 text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"}`}
+                  onClick={() => setActiveChannel(c.id)}>
+                  <Hash size={14} className="opacity-70 flex-shrink-0" />
+                  <span className="truncate flex-1">{c.name}</span>
+                  {canManageChannels && (
+                    <div className="hidden group-hover:flex gap-0.5">
+                      <button onClick={(e) => { e.stopPropagation(); renameChannel(c); }} className="p-0.5 hover:text-primary"><Pencil size={11}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteChannel(c); }} className="p-0.5 hover:text-destructive"><Trash2 size={11}/></button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      <div className="h-full flex flex-col flex-1 min-w-0">
       <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         className="px-4 py-3 flex items-center gap-3 border-b border-border glass-panel">
         {onBack && (
           <button onClick={onBack} className="p-1 rounded-lg hover:bg-muted text-muted-foreground md:hidden"><ArrowLeft size={20} /></button>
         )}
+        <button onClick={() => setShowChannels(v => !v)} title="Channels"
+          className={`p-1.5 rounded-lg transition-colors ${showChannels ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+          <Hash size={18} />
+        </button>
         <button onClick={onOpenManage} className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-90 transition-opacity">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-700 flex items-center justify-center text-white font-bold text-sm overflow-hidden">
             {group.avatar_url ? <img src={group.avatar_url} alt="" className="w-full h-full object-cover" /> : group.avatar_initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm text-foreground truncate">{group.name}</h3>
+            <h3 className="font-semibold text-sm text-foreground truncate flex items-center gap-1.5">{group.name}
+              <span className="text-xs font-normal text-muted-foreground flex items-center gap-0.5"><Hash size={10}/>{activeChannelName}</span>
+            </h3>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Users size={11} /> {memberCount} {t("group.members").toLowerCase()}
             </p>
@@ -145,7 +219,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
 
       <div className="flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ember-bg">
         <AnimatePresence initial={false}>
-          {messages.map((msg) => {
+          {visibleMessages.map((msg) => {
             const isOwn = msg.sender_id === myUserId;
             const sender = profiles[msg.sender_id];
             const isDeleted = !!msg.deleted_at;
@@ -257,6 +331,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
             </motion.button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

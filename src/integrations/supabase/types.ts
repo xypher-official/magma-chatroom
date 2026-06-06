@@ -238,6 +238,30 @@ export type Database = {
         }
         Relationships: []
       }
+      group_channels: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          name: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          name: string
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          name?: string
+          position?: number
+        }
+        Relationships: []
+      }
       group_invites: {
         Row: {
           created_at: string
@@ -320,6 +344,7 @@ export type Database = {
       }
       group_messages: {
         Row: {
+          channel_id: string | null
           content: string
           created_at: string
           group_id: string
@@ -330,6 +355,7 @@ export type Database = {
           sender_id: string
         }
         Insert: {
+          channel_id?: string | null
           content: string
           created_at?: string
           group_id: string
@@ -340,6 +366,7 @@ export type Database = {
           sender_id: string
         }
         Update: {
+          channel_id?: string | null
           content?: string
           created_at?: string
           group_id?: string
