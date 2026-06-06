@@ -332,6 +332,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 };
