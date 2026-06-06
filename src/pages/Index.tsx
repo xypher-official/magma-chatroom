@@ -231,7 +231,7 @@ const Index = () => {
     <div className="min-h-screen bg-background relative overflow-hidden">
       <LavaParticles />
       <SiteEffectsLayer />
-      <SiteModeGate isAdmin={isAdmin} myUserId={session?.user.id}>
+      <SiteModeGate isAdmin={isAdmin} myUserId={session?.user.id} hasSession={!!session}>
       <AnimatePresence mode="wait">
         {!session ? (
           <motion.div key="auth" exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}>
