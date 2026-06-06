@@ -7,6 +7,7 @@ import LavaParticles from "./LavaParticles";
 interface Props {
   isAdmin: boolean;
   myUserId?: string;
+  hasSession?: boolean;
   children: ReactNode;
 }
 
@@ -18,7 +19,7 @@ interface Props {
  *                    can react via the `[data-site-private="1"]` selector.
  *  Anything else  → normal site.
  */
-const SiteModeGate = ({ isAdmin, children }: Props) => {
+const SiteModeGate = ({ isAdmin, hasSession = true, children }: Props) => {
   const [mode, setMode] = useState<string>("");
 
   useEffect(() => {
@@ -35,7 +36,7 @@ const SiteModeGate = ({ isAdmin, children }: Props) => {
     document.documentElement.dataset.sitePrivate = mode === "private" ? "1" : "0";
   }, [mode]);
 
-  if (mode === "maintenance" && !isAdmin) {
+  if (mode === "maintenance" && !isAdmin && hasSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
         <LavaParticles />
