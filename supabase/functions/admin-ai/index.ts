@@ -67,6 +67,11 @@ const tools = [
   { type: "function", function: { name: "list_effects", description: "Lista efectos del sitio y su estado.", parameters: { type: "object", properties: {} } } },
   // --- Event scheduling ---
   { type: "function", function: { name: "schedule_event", description: "Programa un evento con cuenta regresiva. publish_at es ISO datetime en el futuro. Si no se da, publica ahora.", parameters: { type: "object", properties: { title: { type: "string" }, description: { type: "string" }, publish_at: { type: "string" }, countdown_label: { type: "string" }, primary_color: { type: "string" }, accent_color: { type: "string" } }, required: ["title"] } } },
+  // --- Global announcements ---
+  { type: "function", function: { name: "launch_announcement", description: "Lanza un anuncio global ÉPICO en tiempo real a todos los usuarios conectados (estilo Strongest Battlegrounds: barra ancha con animación, brillo y zoom). color: amber|red|sky|emerald|fuchsia. icon: nombre lucide (Megaphone, Flame, Crown, Sparkles, Zap, Trophy, AlertTriangle). duration_seconds: 3-20.", parameters: { type: "object", properties: { title: { type: "string" }, message: { type: "string" }, color: { type: "string" }, icon: { type: "string" }, duration_seconds: { type: "number" } }, required: ["message"] } } },
+  // --- Pages menu position ---
+  { type: "function", function: { name: "set_pages_menu_position", description: "Cambia la posición del botón ☰ que abre las secciones. Valores: top-left, top-right, bottom-left, bottom-right.", parameters: { type: "object", properties: { position: { type: "string" } }, required: ["position"] } } },
+  { type: "function", function: { name: "reorder_page", description: "Cambia la posición de una página en el menú ☰. position menor = más arriba.", parameters: { type: "object", properties: { slug: { type: "string" }, position: { type: "number" } }, required: ["slug", "position"] } } },
 ];
 
 async function getOrCreateSupport(admin: ReturnType<typeof createClient>) {
@@ -391,6 +396,28 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
     if (error) return { error: error.message };
     return { ok: true, event_id: data!.id, scheduled: future ? args.publish_at : "now" };
   }
+  if (name === "launch_announcement") {
+    const duration_ms = Math.max(2000, Math.min(60000, Number(args.duration_seconds ?? 8) * 1000));
+    const { error } = await admin.from("global_announcements").insert({
+      sender_id: adminUserId,
+      title: String(args.title ?? "ANUNCIO GLOBAL").toUpperCase().slice(0, 40),
+      message: String(args.message ?? "").slice(0, 200),
+      color: String(args.color ?? "amber"),
+      icon: String(args.icon ?? "Megaphone"),
+      duration_ms,
+    });
+    if (error) return { error: error.message };
+    return { ok: true, broadcasted: true };
+  }
+  if (name === "set_pages_menu_position") {
+    const pos = String(args.position ?? "top-left").toLowerCase();
+    await admin.from("ui_settings").upsert({ key: "pages.menu.position", value: pos, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    return { ok: true, position: pos };
+  }
+  if (name === "reorder_page") {
+    await admin.from("site_pages").update({ position: Number(args.position) }).eq("slug", args.slug);
+    return { ok: true };
+  }
   return { error: "unknown tool" };
 }
 
@@ -411,13 +438,15 @@ Deno.serve(async (req) => {
     const messages = body.messages as Array<{ role: string; content: string }>;
 
     const systemPrompt = `Eres MAGMA-AI, la consola de administración del owner XypherDev en Magma Chat Room.
-Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo (con cuenta regresiva via schedule_event), efectos visuales globales (set_effect: snow, hats, confetti, rain, fireworks), grupos, tokens UI, tema (colores HSL) y páginas del sitio (menú ☰, markdown + HTML básico).
+Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo (con cuenta regresiva via schedule_event), efectos visuales globales (set_effect: snow, hats, confetti, rain, fireworks), grupos, tokens UI, tema (colores HSL), páginas del sitio (menú ☰, HTML completo), anuncios globales en vivo (launch_announcement, estilo Strongest Battlegrounds) y posición del botón del menú ☰.
 Reglas:
 - Si actúas sobre un usuario por nombre, primero find_user; si hay varios resultados, pide aclaración.
 - Para cambiar textos UI usa set_ui_setting (ej: cambiar "Grupos" → "Chats grupales" usa key="tab.groups").
 - Para cambiar colores usa set_theme con HSL ("H S% L%").
 - Para crear secciones del menú lateral usa create_page con un slug único, emoji apropiado y nombre de ícono lucide-react válido (PascalCase: Flame, Crown, Users, Sparkles, MessageCircle, Shield, Bell, Star, Heart, Zap, BookOpen, FileText, Info, HelpCircle).
-- El contenido de páginas soporta markdown estándar y HTML básico (h1-h3, p, ul, ol, li, a, img, strong, em, blockquote, code). Aprovéchalo para crear secciones ricas.
+- IMPORTANTE: El contenido de páginas (create_page / update_page) DEBE entregarse como HTML completo y rico, NO como markdown plano. Usa <section>, <header>, <h1>-<h3>, <p>, <ul>, <a>, <img>, <strong>, <em>, <blockquote>, <div class="...">, <button>, estilos inline (style="..."), grids y tarjetas. Aprovecha clases Tailwind como "rounded-2xl", "p-6", "bg-gradient-to-br", "text-amber-400", "grid grid-cols-2 gap-4", etc. para que las secciones se vean increíbles. Nunca uses <script>.
+- Para anuncios urgentes/importantes a todo el sitio en vivo usa launch_announcement (no broadcast, que es solo mensajes en chats). Elige color e ícono apropiados al tono.
+- Para mover el botón del menú ☰ usa set_pages_menu_position. Para reordenar páginas en el menú usa reorder_page.
 - Confirma cada acción con un mensaje breve y un emoji (🔥 ✅ ⚠️ 🗑️ 👑 💬 📢 🎬 📰 👥 🎨 📄).
 - Nunca actúes sobre el usuario oficial (chatroom_support).
 - Sé conciso, directo, en español.`;
