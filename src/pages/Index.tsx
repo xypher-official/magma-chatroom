@@ -22,6 +22,7 @@ import GroupInvitesInbox from "@/components/GroupInvitesInbox";
 import InviteToGroupDialog from "@/components/InviteToGroupDialog";
 import Email2FAGate, { passed2FA, consume2FA } from "@/components/Email2FAGate";
 import SiteModeGate from "@/components/SiteModeGate";
+import GlobalAnnouncementOverlay from "@/components/GlobalAnnouncementOverlay";
 import { useWebRTCCall } from "@/hooks/useWebRTCCall";
 import { useNotifications } from "@/hooks/useNotifications";
 import { toast } from "sonner";
@@ -302,6 +303,8 @@ const Index = () => {
       {session && (
         <CallOverlay call={call} profiles={profilesForCall} myUserId={session.user.id} />
       )}
+
+      <GlobalAnnouncementOverlay enabled={!!session} />
 
       {showAdmin && isAdmin && <AdminPanel onClose={() => setShowAdmin(false)} profiles={Object.values(profiles)} />}
       {showNewChat && session && (
