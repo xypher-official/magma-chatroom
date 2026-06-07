@@ -238,6 +238,42 @@ export type Database = {
         }
         Relationships: []
       }
+      global_announcements: {
+        Row: {
+          color: string
+          created_at: string
+          duration_ms: number
+          icon: string
+          id: string
+          message: string
+          sender_id: string
+          style: string
+          title: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          duration_ms?: number
+          icon?: string
+          id?: string
+          message: string
+          sender_id: string
+          style?: string
+          title?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          duration_ms?: number
+          icon?: string
+          id?: string
+          message?: string
+          sender_id?: string
+          style?: string
+          title?: string
+        }
+        Relationships: []
+      }
       group_channels: {
         Row: {
           created_at: string
