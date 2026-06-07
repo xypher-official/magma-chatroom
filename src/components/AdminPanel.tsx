@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import UiTab from "./UiTab";
 import UserPickerDialog from "./UserPickerDialog";
 import { Search } from "lucide-react";
+import AdminAnnounceTab from "./AdminAnnounceTab";
 
 interface Profile {
   user_id: string;
@@ -29,7 +30,7 @@ interface AdminPanelProps {
   profiles: Profile[];
 }
 
-type Tab = "ai" | "broadcast" | "users" | "stats" | "cms" | "events" | "ui";
+type Tab = "ai" | "announce" | "broadcast" | "users" | "stats" | "cms" | "events" | "ui";
 
 const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
   const [tab, setTab] = useState<Tab>("ai");
@@ -141,6 +142,7 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
           <div className="flex border-b border-border bg-muted/30">
             {([
               ["ai", "IA", Sparkles],
+              ["announce", "Anuncio", Megaphone],
               ["broadcast", "Mensajes", Megaphone],
               ["users", "Usuarios", Users],
               ["cms", "Sitio", FileText],
@@ -164,6 +166,7 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
 
           <div className="flex-1 overflow-y-auto scrollbar-magma p-6">
             {tab === "ai" && <AdminAIConsole />}
+            {tab === "announce" && <AdminAnnounceTab myUserId={myUserId} />}
             {tab === "cms" && <CmsTab />}
             {tab === "ui" && <UiTab />}
             {tab === "events" && <EventsTab />}
