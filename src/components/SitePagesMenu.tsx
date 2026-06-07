@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import DOMPurify from "dompurify";
 import { useAutoTranslate } from "@/hooks/useAutoTranslate";
 import { T } from "./T";
+import { useUiSettings } from "@/hooks/useUiSettings";
 
 interface Page {
   id: string;
@@ -19,9 +20,17 @@ interface Page {
 
 interface Props { isAdmin?: boolean; onEditCms?: () => void }
 
-const renderHtml = (md: string) => {
-  // very small markdown → html, then sanitize
-  let html = md
+const ALLOWED_TAGS = ["h1","h2","h3","h4","h5","h6","p","strong","em","ul","ol","li","a","img","blockquote","code","pre","br","hr","span","div","section","article","header","footer","button","figure","figcaption","table","thead","tbody","tr","td","th","iframe","video","source"];
+const ALLOWED_ATTR = ["href","target","rel","src","alt","title","class","style","width","height","loading","srcset","sizes","allow","allowfullscreen","frameborder"];
+
+const renderHtml = (raw: string) => {
+  const trimmed = (raw ?? "").trim();
+  // If content already looks like HTML, sanitize and render directly.
+  if (/^\s*<[a-zA-Z!]/.test(trimmed)) {
+    return DOMPurify.sanitize(trimmed, { ALLOWED_TAGS, ALLOWED_ATTR });
+  }
+  // Otherwise do a tiny markdown -> html pass.
+  let html = trimmed
     .replace(/^### (.*)$/gm, "<h3>$1</h3>")
     .replace(/^## (.*)$/gm, "<h2>$1</h2>")
     .replace(/^# (.*)$/gm, "<h1>$1</h1>")
@@ -31,10 +40,7 @@ const renderHtml = (md: string) => {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
     .replace(/\n\n/g, "</p><p>");
   if (!/^<h\d|^<p|^<ul|^<ol|^<blockquote/.test(html)) html = `<p>${html}</p>`;
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ["h1","h2","h3","h4","p","strong","em","ul","ol","li","a","img","blockquote","code","pre","br","hr","span","div"],
-    ALLOWED_ATTR: ["href","target","rel","src","alt","title","class"],
-  });
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR });
 };
 
 const IconByName = ({ name, size = 18 }: { name: string; size?: number }) => {
@@ -46,6 +52,13 @@ const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<Page[]>([]);
   const [active, setActive] = useState<Page | null>(null);
+  const { t } = useUiSettings();
+  const position = (t("pages.menu.position", "top-left") || "top-left").toLowerCase();
+  const posClass =
+    position === "top-right" ? "top-3 right-3" :
+    position === "bottom-left" ? "bottom-3 left-3" :
+    position === "bottom-right" ? "bottom-3 right-3" :
+    "top-3 left-3";
 
   useEffect(() => {
     const load = () => supabase.from("site_pages").select("*").order("position", { ascending: true })
@@ -65,7 +78,7 @@ const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
         whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
         onClick={() => setOpen(true)}
         title="Secciones del sitio"
-        className="fixed top-3 left-3 z-40 p-2.5 rounded-xl glass-panel-strong text-foreground hover:text-primary magma-glow-sm"
+        className={`fixed ${posClass} z-40 p-2.5 rounded-xl glass-panel-strong text-foreground hover:text-primary magma-glow-sm`}
       >
         <Menu size={18} />
       </motion.button>

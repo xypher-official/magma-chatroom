@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Save, Palette, Type, FilePlus, Trash2, icons as LucideIcons, ShieldAlert, Wrench, Globe } from "lucide-react";
+import { Save, Palette, Type, FilePlus, Trash2, icons as LucideIcons, ShieldAlert, Wrench, Globe, ArrowUp, ArrowDown, LayoutGrid } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -61,6 +61,24 @@ const UiTab = () => {
     else { toast.success(mode ? `🌋 Modo "${mode}" activado` : "✅ Modo normal"); reload(); }
   };
 
+  const currentMenuPos = (settings.find((s) => s.key === "pages.menu.position")?.value ?? "top-left").toLowerCase();
+  const setMenuPos = async (pos: string) => {
+    const { error } = await supabase.from("ui_settings").upsert(
+      { key: "pages.menu.position", value: pos, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) toast.error(error.message); else { toast.success(`📌 Botón → ${pos}`); reload(); }
+  };
+
+  const movePage = async (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= pages.length) return;
+    const a = pages[idx], b = pages[target];
+    await Promise.all([
+      supabase.from("site_pages").update({ position: b.position }).eq("id", a.id),
+      supabase.from("site_pages").update({ position: a.position }).eq("id", b.id),
+    ]);
+    reload();
+  };
+
   return (
     <div className="space-y-8">
       <section>
@@ -86,6 +104,20 @@ const UiTab = () => {
           <strong>Privado:</strong> oculta secciones y solo permite chats con tus contactos.<br/>
           <strong>Mantenimiento:</strong> bloquea el sitio para todos excepto admins.
         </p>
+      </section>
+
+      <section>
+        <h3 className="text-sm font-semibold flex items-center gap-2 mb-3 text-foreground">
+          <LayoutGrid size={16} className="text-primary" /> Posición del botón de Secciones (☰)
+        </h3>
+        <div className="grid grid-cols-2 gap-2">
+          {(["top-left","top-right","bottom-left","bottom-right"] as const).map((pos) => (
+            <button key={pos} onClick={() => setMenuPos(pos)}
+              className={`p-3 rounded-xl border text-xs font-bold transition-all ${currentMenuPos === pos ? "border-primary bg-primary/15 text-primary" : "border-border bg-muted/30 text-muted-foreground hover:border-primary/40"}`}>
+              {pos.replace("-", " ")}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section>
@@ -142,6 +174,19 @@ const UiTab = () => {
         <div className="space-y-3">
           {pages.map((p, i) => (
             <div key={p.id} className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-muted-foreground">pos #{p.position}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => movePage(i, -1)} disabled={i === 0} title="Subir"
+                    className="p-1 rounded-md bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary disabled:opacity-30">
+                    <ArrowUp size={12} />
+                  </button>
+                  <button onClick={() => movePage(i, 1)} disabled={i === pages.length - 1} title="Bajar"
+                    className="p-1 rounded-md bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary disabled:opacity-30">
+                    <ArrowDown size={12} />
+                  </button>
+                </div>
+              </div>
               <div className="flex gap-2 items-center">
                 <input value={p.emoji} maxLength={2} title="Emoji"
                   onChange={(e) => setPages(pages.map((x, j) => j === i ? { ...x, emoji: e.target.value } : x))}
@@ -161,6 +206,9 @@ const UiTab = () => {
               <textarea value={p.content} rows={4} placeholder="Markdown + HTML básico (h1-h3, p, ul, a, img, strong, em)"
                 onChange={(e) => setPages(pages.map((x, j) => j === i ? { ...x, content: e.target.value } : x))}
                 className="w-full px-2 py-1.5 rounded-lg bg-input border border-border text-xs outline-none font-mono resize-none" />
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                💡 Puedes escribir HTML completo (ej. <code>&lt;section&gt;...&lt;/section&gt;</code>) o pedirle a la IA que genere HTML. Se renderiza sanitizado.
+              </p>
               <div className="flex gap-2">
                 <button onClick={() => savePage(p)} className="flex-1 py-1.5 rounded-lg bg-primary/15 text-primary text-xs flex items-center justify-center gap-1"><Save size={12} /> Guardar</button>
                 <button onClick={() => delPage(p.id)} className="px-3 py-1.5 rounded-lg text-destructive bg-destructive/10 text-xs"><Trash2 size={12} /></button>
