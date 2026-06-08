@@ -1125,6 +1125,108 @@ export type Database = {
         }
         Relationships: []
       }
+      video_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          video_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          video_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          video_id?: string
+        }
+        Relationships: []
+      }
+      video_likes: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: []
+      }
+      videos: {
+        Row: {
+          author_id: string
+          comments_count: number
+          created_at: string
+          description: string
+          id: string
+          is_premiere: boolean
+          kind: string
+          likes_count: number
+          premiere_at: string | null
+          scheduled_at: string | null
+          status: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          video_url: string
+          views_count: number
+        }
+        Insert: {
+          author_id: string
+          comments_count?: number
+          created_at?: string
+          description?: string
+          id?: string
+          is_premiere?: boolean
+          kind?: string
+          likes_count?: number
+          premiere_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          video_url: string
+          views_count?: number
+        }
+        Update: {
+          author_id?: string
+          comments_count?: number
+          created_at?: string
+          description?: string
+          id?: string
+          is_premiere?: boolean
+          kind?: string
+          likes_count?: number
+          premiere_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string
+          views_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
