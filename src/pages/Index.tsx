@@ -243,7 +243,7 @@ const Index = () => {
             transition={{ duration: 0.5 }} className="relative z-10 h-screen flex flex-col">
             {isAdmin || document.documentElement.dataset.sitePrivate !== "1" ? (
               <>
-                <SitePagesMenu isAdmin={isAdmin} onEditCms={() => setShowAdmin(true)} />
+                <SitePagesMenu isAdmin={isAdmin} onEditCms={() => setShowAdmin(true)} myUserId={session.user.id} profiles={profiles as any} />
                 <SiteBanner />
                 <LiveEventBar />
               </>
