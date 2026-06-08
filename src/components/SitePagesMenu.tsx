@@ -6,6 +6,7 @@ import DOMPurify from "dompurify";
 import { useAutoTranslate } from "@/hooks/useAutoTranslate";
 import { T } from "./T";
 import { useUiSettings } from "@/hooks/useUiSettings";
+import MSocialVideos from "./MSocialVideos";
 
 interface Page {
   id: string;
@@ -18,7 +19,7 @@ interface Page {
   position: number;
 }
 
-interface Props { isAdmin?: boolean; onEditCms?: () => void }
+interface Props { isAdmin?: boolean; onEditCms?: () => void; myUserId?: string; profiles?: Record<string, any> }
 
 const ALLOWED_TAGS = ["h1","h2","h3","h4","h5","h6","p","strong","em","ul","ol","li","a","img","blockquote","code","pre","br","hr","span","div","section","article","header","footer","button","figure","figcaption","table","thead","tbody","tr","td","th","iframe","video","source"];
 const ALLOWED_ATTR = ["href","target","rel","src","alt","title","class","style","width","height","loading","srcset","sizes","allow","allowfullscreen","frameborder"];
@@ -48,7 +49,7 @@ const IconByName = ({ name, size = 18 }: { name: string; size?: number }) => {
   return <Cmp size={size} />;
 };
 
-const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
+const SitePagesMenu = ({ isAdmin, onEditCms, myUserId, profiles }: Props) => {
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<Page[]>([]);
   const [active, setActive] = useState<Page | null>(null);
@@ -70,7 +71,10 @@ const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  const visible = pages.filter((p) => p.enabled || isAdmin);
+  const builtIn: Page[] = [
+    { id: "__msocial_videos__", slug: "msocial-videos", title: "MSocialVideos", content: "", emoji: "🎬", icon: "Clapperboard", enabled: true, position: -1 },
+  ];
+  const visible = [...builtIn, ...pages.filter((p) => p.enabled || isAdmin)];
 
   return (
     <>
@@ -145,7 +149,11 @@ const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
               onClick={(e) => e.stopPropagation()}
               className="flex-1 h-full overflow-y-auto scrollbar-magma p-6 md:p-10"
             >
-              <ActivePageContent page={active} />
+              {active.slug === "msocial-videos" ? (
+                <MSocialVideos myUserId={myUserId} isAdmin={isAdmin} profiles={profiles ?? {}} />
+              ) : (
+                <ActivePageContent page={active} />
+              )}
             </motion.div>
           )}
         </motion.div>
