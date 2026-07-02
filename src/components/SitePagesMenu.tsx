@@ -19,29 +19,6 @@ interface Page {
 
 interface Props { isAdmin?: boolean; onEditCms?: () => void; myUserId?: string; profiles?: Record<string, any> }
 
-const ALLOWED_TAGS = ["h1","h2","h3","h4","h5","h6","p","strong","em","ul","ol","li","a","img","blockquote","code","pre","br","hr","span","div","section","article","header","footer","button","figure","figcaption","table","thead","tbody","tr","td","th","iframe","video","source"];
-const ALLOWED_ATTR = ["href","target","rel","src","alt","title","class","style","width","height","loading","srcset","sizes","allow","allowfullscreen","frameborder"];
-
-const renderHtml = (raw: string) => {
-  const trimmed = (raw ?? "").trim();
-  // If content already looks like HTML, sanitize and render directly.
-  if (/^\s*<[a-zA-Z!]/.test(trimmed)) {
-    return DOMPurify.sanitize(trimmed, { ALLOWED_TAGS, ALLOWED_ATTR });
-  }
-  // Otherwise do a tiny markdown -> html pass.
-  let html = trimmed
-    .replace(/^### (.*)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.*)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.*)$/gm, "<h1>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    .replace(/\n\n/g, "</p><p>");
-  if (!/^<h\d|^<p|^<ul|^<ol|^<blockquote/.test(html)) html = `<p>${html}</p>`;
-  return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR });
-};
-
 const IconByName = ({ name, size = 18 }: { name: string; size?: number }) => {
   const Cmp = (LucideIcons as any)[name] ?? LucideIcons.FileText;
   return <Cmp size={size} />;
