@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Menu, X, Pencil, icons as LucideIcons } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import DOMPurify from "dompurify";
-import { useAutoTranslate } from "@/hooks/useAutoTranslate";
 import { T } from "./T";
 import { useUiSettings } from "@/hooks/useUiSettings";
-import MSocialVideos from "./MSocialVideos";
 
 interface Page {
   id: string;
@@ -49,10 +47,10 @@ const IconByName = ({ name, size = 18 }: { name: string; size?: number }) => {
   return <Cmp size={size} />;
 };
 
-const SitePagesMenu = ({ isAdmin, onEditCms, myUserId, profiles }: Props) => {
+const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
   const [open, setOpen] = useState(false);
   const [pages, setPages] = useState<Page[]>([]);
-  const [active, setActive] = useState<Page | null>(null);
+  const navigate = useNavigate();
   const { t } = useUiSettings();
   const position = (t("pages.menu.position", "top-left") || "top-left").toLowerCase();
   const posClass =
@@ -72,9 +70,16 @@ const SitePagesMenu = ({ isAdmin, onEditCms, myUserId, profiles }: Props) => {
   }, []);
 
   const builtIn: Page[] = [
-    { id: "__msocial_videos__", slug: "msocial-videos", title: "MSocialVideos", content: "", emoji: "🎬", icon: "Clapperboard", enabled: true, position: -1 },
+    { id: "__msocial_videos__", slug: "social/videos", title: "MSocialVideos", content: "", emoji: "🎬", icon: "Clapperboard", enabled: true, position: -1 },
   ];
   const visible = [...builtIn, ...pages.filter((p) => p.enabled || isAdmin)];
+
+  const goTo = (slug: string) => {
+    setOpen(false);
+    // Nested slugs (contain "/") route through /s/* to avoid collision with :slug
+    if (slug.includes("/")) navigate(`/${slug}`);
+    else navigate(`/${slug}`);
+  };
 
   return (
     <>
@@ -123,10 +128,8 @@ const SitePagesMenu = ({ isAdmin, onEditCms, myUserId, profiles }: Props) => {
                 <motion.button
                   key={p.id}
                   initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                  onClick={() => setActive(p)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl mb-1 transition-all border ${
-                    active?.id === p.id ? "bg-primary/15 border-primary/30" : "border-transparent hover:bg-muted"
-                  } ${!p.enabled ? "opacity-60" : ""}`}
+                  onClick={() => goTo(p.slug)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl mb-1 transition-all border border-transparent hover:bg-muted ${!p.enabled ? "opacity-60" : ""}`}
                 >
                   <div className="w-9 h-9 rounded-lg magma-gradient flex items-center justify-center text-primary-foreground text-base shrink-0">
                     {p.emoji}
@@ -142,40 +145,9 @@ const SitePagesMenu = ({ isAdmin, onEditCms, myUserId, profiles }: Props) => {
               ))}
             </div>
           </motion.aside>
-
-          {active && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="flex-1 h-full overflow-y-auto scrollbar-magma p-6 md:p-10"
-            >
-              {active.slug === "msocial-videos" ? (
-                <MSocialVideos myUserId={myUserId} isAdmin={isAdmin} profiles={profiles ?? {}} />
-              ) : (
-                <ActivePageContent page={active} />
-              )}
-            </motion.div>
-          )}
         </motion.div>
       )}
     </>
-  );
-};
-
-const ActivePageContent = ({ page }: { page: Page }) => {
-  const translatedTitle = useAutoTranslate(page.title);
-  const translatedContent = useAutoTranslate(page.content);
-  return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 rounded-2xl magma-gradient flex items-center justify-center text-2xl">{page.emoji}</div>
-        <h1 className="text-2xl md:text-3xl font-bold magma-gradient-text">{translatedTitle || page.title}</h1>
-      </div>
-      <article
-        className="prose prose-invert prose-sm md:prose-base max-w-none text-foreground"
-        dangerouslySetInnerHTML={{ __html: renderHtml(translatedContent || page.content) }}
-      />
-    </div>
   );
 };
 
