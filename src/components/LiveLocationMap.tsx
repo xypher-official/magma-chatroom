@@ -124,17 +124,17 @@ const LiveLocationMap = ({ open, onClose, myUserId, conversationId, groupId, con
                   attribution='&copy; OpenStreetMap'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                {points.map((p) => (
-                  <div key={p.id}>
-                    <Marker position={[p.lat, p.lng]} icon={p.isMe ? meIcon : themIcon}>
-                      <Popup>
-                        <strong>{p.isMe ? "You" : profiles[p.uid]?.display_name ?? "Unknown"}</strong>
-                      </Popup>
-                    </Marker>
-                    {p.acc && <Circle center={[p.lat, p.lng]} radius={p.acc}
-                      pathOptions={{ color: p.isMe ? "#f97316" : "#3b82f6", fillOpacity: 0.08, weight: 1 }} />}
-                  </div>
-                ))}
+                {points.flatMap((p) => [
+                  <Marker key={`m-${p.id}`} position={[p.lat, p.lng]} icon={p.isMe ? meIcon : themIcon}>
+                    <Popup>
+                      <strong>{p.isMe ? "You" : profiles[p.uid]?.display_name ?? "Unknown"}</strong>
+                    </Popup>
+                  </Marker>,
+                  p.acc ? (
+                    <Circle key={`c-${p.id}`} center={[p.lat, p.lng]} radius={p.acc}
+                      pathOptions={{ color: p.isMe ? "#f97316" : "#3b82f6", fillOpacity: 0.08, weight: 1 }} />
+                  ) : null,
+                ])}
               </MapContainer>
             )}
           </div>
