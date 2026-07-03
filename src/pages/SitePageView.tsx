@@ -68,8 +68,14 @@ const SitePageView = () => {
     })();
   }, [slug]);
 
+  // Only auto-translate the title. Content may be raw HTML — translating it
+  // through the AI can strip tags or return malformed markup, causing the
+  // section body to disappear a few seconds after opening.
   const title = useAutoTranslate(page?.title ?? "");
-  const content = useAutoTranslate(page?.content ?? "");
+  const rawContent = page?.content ?? "";
+  const isHtml = /^\s*<[a-zA-Z!]/.test(rawContent.trim());
+  const translatedText = useAutoTranslate(isHtml ? "" : rawContent);
+  const content = isHtml ? rawContent : (translatedText || rawContent);
 
   if (status === "loading") return <div className="min-h-screen flex items-center justify-center text-muted-foreground">…</div>;
   if (status === "404") return <NotFound />;
@@ -95,7 +101,7 @@ const SitePageView = () => {
             </div>
             <article
               className="prose prose-invert prose-sm md:prose-base max-w-none text-foreground"
-              dangerouslySetInnerHTML={{ __html: renderHtml(content || page.content) }}
+              dangerouslySetInnerHTML={{ __html: renderHtml(content) || renderHtml(page.content) || page.content }}
             />
           </div>
         ) : null}
