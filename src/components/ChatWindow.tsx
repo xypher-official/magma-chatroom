@@ -18,6 +18,8 @@ import { useBlocks } from "@/hooks/useBlocks";
 import { useKeyboardPref } from "@/hooks/useKeyboardPref";
 import SmartKeyboard from "./SmartKeyboard";
 import { useAutoTranslate } from "@/hooks/useAutoTranslate";
+import { useTyping } from "@/hooks/useTyping";
+import TypingIndicator from "./TypingIndicator";
 
 export interface MessageRow {
   id: string;
@@ -112,6 +114,9 @@ const ChatWindow = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const convId = messages[0]?.conversation_id;
+  const myName = profiles[myUserId]?.display_name;
+  const { typing, sendTyping } = useTyping(convId ? `dm-${convId}` : null, myUserId, myName);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -327,6 +332,7 @@ const ChatWindow = ({
         </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
+      <TypingIndicator names={typing.map((t) => t.name)} />
 
       {/* AI image prompt */}
       <AnimatePresence>
@@ -387,7 +393,7 @@ const ChatWindow = ({
               onSent={(url, type, dur) => onSendMessage(`🎙️ ${dur}s`, url, type)} />
             <input
               type="text" value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { setInput(e.target.value); sendTyping(); }}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               onFocus={() => setInputFocused(true)}
               onBlur={() => setTimeout(() => setInputFocused(false), 150)}
