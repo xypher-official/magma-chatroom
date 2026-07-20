@@ -9,6 +9,8 @@ import EmojiPickerPopover from "./EmojiPickerPopover";
 import VoiceRecorder from "./VoiceRecorder";
 import VoiceMessageBubble from "./VoiceMessageBubble";
 import { useAutoTranslate } from "@/hooks/useAutoTranslate";
+import { useTyping } from "@/hooks/useTyping";
+import TypingIndicator from "./TypingIndicator";
 
 const TranslatedGroupText = ({ text }: { text: string }) => {
   const translated = useAutoTranslate(text);
@@ -51,6 +53,9 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const [activeChannel, setActiveChannel] = useState<string | null>(null);
   const [showChannels, setShowChannels] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const typingKey = activeChannel ? `grp-${group.id}-${activeChannel}` : `grp-${group.id}`;
+  const myName = profiles[myUserId]?.display_name;
+  const { typing, sendTyping } = useTyping(typingKey, myUserId, myName);
 
   useEffect(() => {
     supabase.from("group_messages").select("*").eq("group_id", group.id).order("created_at", { ascending: true })
@@ -278,6 +283,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
         </AnimatePresence>
         <div ref={endRef} />
       </div>
+      <TypingIndicator names={typing.map((t) => t.name)} />
 
       <AnimatePresence>
         {showAi && canWrite && (
@@ -323,6 +329,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
             <VoiceRecorder myUserId={myUserId}
               onSent={(url, type, dur) => send(url, type, `🎙️ ${dur}s`)} />
             <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
+              onInput={sendTyping}
               placeholder={t("chat.placeholder")}
               className="flex-1 px-4 py-2.5 rounded-xl bg-muted text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/30" />
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => send()} disabled={!input.trim()}
