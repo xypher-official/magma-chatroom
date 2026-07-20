@@ -11,6 +11,16 @@ const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
+  // Free public TURN — used only if STUN fails (symmetric NAT, etc.)
+  {
+    urls: [
+      "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:443",
+      "turn:openrelay.metered.ca:443?transport=tcp",
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];
 
 export type CallState = "idle" | "calling" | "ringing" | "connecting" | "active" | "ended";
@@ -37,13 +47,24 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
   const signalChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const callIdRef = useRef<string | null>(null);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
+  const stateRef = useRef<CallState>("idle");
+  const cleaningRef = useRef(false);
+  const isCallerRef = useRef(false);
+  const otherUserRef = useRef<string | null>(null);
+  const offerSentRef = useRef(false);
+
+  useEffect(() => { stateRef.current = state; }, [state]);
 
   const cleanup = useCallback(async (markEnded = true) => {
+    if (cleaningRef.current) return;
+    cleaningRef.current = true;
     try { pcRef.current?.close(); } catch { /* ignore */ }
     pcRef.current = null;
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
     remoteStreamRef.current = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
     if (signalChannelRef.current) {
       await supabase.removeChannel(signalChannelRef.current);
       signalChannelRef.current = null;
@@ -56,11 +77,15 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
     }
     callIdRef.current = null;
     pendingIceRef.current = [];
+    isCallerRef.current = false;
+    otherUserRef.current = null;
+    offerSentRef.current = false;
     setActive(null);
     setIncoming(null);
     setMuted(false);
     setCameraOff(false);
     setState("idle");
+    cleaningRef.current = false;
   }, [myUserId]);
 
   const sendSignal = useCallback(async (toUser: string, signalType: string, payload: any) => {
@@ -85,17 +110,32 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       if (e.candidate) sendSignal(otherUserId, "ice", e.candidate.toJSON());
     };
     pc.ontrack = (e) => {
-      e.streams[0]?.getTracks().forEach((t) => remote.addTrack(t));
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remote;
+      const stream = e.streams[0];
+      if (stream) {
+        stream.getTracks().forEach((t) => {
+          if (!remote.getTracks().find((rt) => rt.id === t.id)) remote.addTrack(t);
+        });
+      } else if (e.track) {
+        remote.addTrack(e.track);
+      }
+      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remote) {
+        remoteVideoRef.current.srcObject = remote;
+      }
+    };
+    pc.oniceconnectionstatechange = () => {
+      const s = pc.iceConnectionState;
+      if (s === "connected" || s === "completed") setState("active");
+      if (s === "failed") { toast.error("Call connection failed"); cleanup(); }
     };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "connected") {
+      const s = pc.connectionState;
+      if (s === "connected") {
         setState("active");
         if (callIdRef.current && myUserId) {
           supabase.from("call_events").insert({ call_id: callIdRef.current, user_id: myUserId, event_type: "joined" }).then(() => {}, () => {});
         }
       }
-      if (pc.connectionState === "failed" || pc.connectionState === "closed") cleanup();
+      if (s === "failed") cleanup();
     };
     return pc;
   }, [cleanup, sendSignal, myUserId]);
@@ -110,56 +150,106 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
     return stream;
   }, []);
 
-  const subscribeSignals = useCallback((callId: string, otherUserId: string) => {
-    if (signalChannelRef.current) supabase.removeChannel(signalChannelRef.current);
-    const ch = supabase
-      .channel(`call-${callId}`)
-      .on("postgres_changes", {
-        event: "INSERT", schema: "public", table: "call_signals",
-        filter: `call_id=eq.${callId}`,
-      }, async (payload) => {
-        const sig: any = payload.new;
-        if (sig.from_user === myUserId) return;
-        const pc = pcRef.current;
-        if (!pc) return;
-        try {
-          if (sig.signal_type === "offer") {
-            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-            for (const c of pendingIceRef.current) await pc.addIceCandidate(new RTCIceCandidate(c));
-            pendingIceRef.current = [];
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            await sendSignal(otherUserId, "answer", { type: answer.type, sdp: answer.sdp });
-          } else if (sig.signal_type === "answer") {
-            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-            for (const c of pendingIceRef.current) await pc.addIceCandidate(new RTCIceCandidate(c));
-            pendingIceRef.current = [];
-          } else if (sig.signal_type === "ice") {
-            if (pc.remoteDescription) await pc.addIceCandidate(new RTCIceCandidate(sig.payload));
-            else pendingIceRef.current.push(sig.payload);
-          } else if (sig.signal_type === "hangup") {
-            await cleanup(false);
-            toast.info("📞 Call ended");
-          }
-        } catch (e) {
-          console.error("signal error", e);
+  const handleSignal = useCallback(async (sig: any) => {
+    if (!sig || sig.from_user === myUserId) return;
+    const pc = pcRef.current;
+    if (!pc) return;
+    const otherUserId = otherUserRef.current ?? sig.from_user;
+    try {
+      if (sig.signal_type === "offer") {
+        if (pc.signalingState !== "stable") {
+          console.warn("Ignoring offer in state", pc.signalingState);
+          return;
         }
-      })
-      .on("postgres_changes", {
-        event: "UPDATE", schema: "public", table: "calls",
-        filter: `id=eq.${callId}`,
-      }, async (payload) => {
-        const c: any = payload.new;
-        if (c.status === "ended") await cleanup(false);
-      })
-      .subscribe();
-    signalChannelRef.current = ch;
+        await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+        for (const c of pendingIceRef.current) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) { console.warn("ice add fail", e); }
+        }
+        pendingIceRef.current = [];
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await sendSignal(otherUserId, "answer", { type: answer.type, sdp: answer.sdp });
+      } else if (sig.signal_type === "answer") {
+        if (pc.signalingState === "have-local-offer") {
+          await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+          for (const c of pendingIceRef.current) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch (e) { console.warn("ice add fail", e); }
+          }
+          pendingIceRef.current = [];
+        }
+      } else if (sig.signal_type === "ice") {
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(sig.payload)); } catch (e) { console.warn("ice add fail", e); }
+        } else {
+          pendingIceRef.current.push(sig.payload);
+        }
+      } else if (sig.signal_type === "hangup") {
+        toast.info("📞 Call ended");
+        await cleanup(false);
+      }
+    } catch (e) {
+      console.error("signal error", e);
+    }
   }, [cleanup, myUserId, sendSignal]);
+
+  const sendOfferAsCaller = useCallback(async () => {
+    if (offerSentRef.current) return;
+    const pc = pcRef.current;
+    const other = otherUserRef.current;
+    if (!pc || !other) return;
+    offerSentRef.current = true;
+    setState("connecting");
+    try {
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await pc.setLocalDescription(offer);
+      await sendSignal(other, "offer", { type: offer.type, sdp: offer.sdp });
+    } catch (e) {
+      console.error("offer error", e);
+      offerSentRef.current = false;
+    }
+  }, [sendSignal]);
+
+  const subscribeSignals = useCallback(async (callId: string) => {
+    if (signalChannelRef.current) {
+      await supabase.removeChannel(signalChannelRef.current);
+      signalChannelRef.current = null;
+    }
+    return await new Promise<void>((resolve) => {
+      const ch = supabase
+        .channel(`call-${callId}-${myUserId}`)
+        .on("postgres_changes", {
+          event: "INSERT", schema: "public", table: "call_signals",
+          filter: `call_id=eq.${callId}`,
+        }, (payload) => { handleSignal(payload.new); })
+        .on("postgres_changes", {
+          event: "UPDATE", schema: "public", table: "calls",
+          filter: `id=eq.${callId}`,
+        }, async (payload) => {
+          const c: any = payload.new;
+          if (c.status === "ended" || c.status === "declined") {
+            if (c.status === "declined") toast.info("📞 Call declined");
+            await cleanup(false);
+          } else if (c.status === "accepted" && isCallerRef.current) {
+            await sendOfferAsCaller();
+          }
+        })
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED") {
+            // Replay any signals inserted before subscription was ready
+            const { data } = await supabase.from("call_signals")
+              .select("*").eq("call_id", callId).order("created_at", { ascending: true });
+            for (const s of data ?? []) await handleSignal(s);
+            resolve();
+          }
+        });
+      signalChannelRef.current = ch;
+    });
+  }, [cleanup, handleSignal, myUserId, sendOfferAsCaller]);
 
   // --- Public API ---
   const startCall = useCallback(async (calleeId: string, callType: "video" | "audio") => {
     if (!myUserId) return;
-    if (state !== "idle") { toast.error("Already in a call"); return; }
+    if (stateRef.current !== "idle") { toast.error("Already in a call"); return; }
     try {
       setState("calling");
       // Get media first so we surface permission errors before creating the row.
@@ -170,21 +260,20 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       }).select("id").single();
       if (error || !callRow) throw error ?? new Error("Could not create call");
       callIdRef.current = callRow.id;
+      isCallerRef.current = true;
+      otherUserRef.current = calleeId;
       setActive({ id: callRow.id, callerId: myUserId, calleeId, callType });
 
       const pc = setupPeerConnection(calleeId);
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-      subscribeSignals(callRow.id, calleeId);
-
-      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: callType === "video" });
-      await pc.setLocalDescription(offer);
-      await sendSignal(calleeId, "offer", { type: offer.type, sdp: offer.sdp });
+      await subscribeSignals(callRow.id);
+      // Offer is sent when callee accepts (status → 'accepted' via UPDATE listener).
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message?.includes("Permission") ? "Microphone/camera permission denied" : (e?.message ?? "Call failed"));
       await cleanup();
     }
-  }, [cleanup, getLocalStream, myUserId, sendSignal, setupPeerConnection, state, subscribeSignals]);
+  }, [cleanup, getLocalStream, myUserId, setupPeerConnection, subscribeSignals]);
 
   const acceptCall = useCallback(async () => {
     if (!incoming || !myUserId) return;
@@ -192,13 +281,15 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       setState("connecting");
       const stream = await getLocalStream(incoming.callType === "video");
       callIdRef.current = incoming.id;
+      isCallerRef.current = false;
+      otherUserRef.current = incoming.callerId;
       setActive(incoming);
       const pc = setupPeerConnection(incoming.callerId);
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-      subscribeSignals(incoming.id, incoming.callerId);
+      await subscribeSignals(incoming.id);
+      // Signal caller to send the offer now that we're ready.
       await supabase.from("calls").update({ status: "accepted" }).eq("id", incoming.id);
       setIncoming(null);
-      // Wait for offer signal — already subscribed
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message ?? "Call failed");
@@ -244,13 +335,13 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       }, (payload) => {
         const c: any = payload.new;
         if (c.status !== "ringing") return;
-        if (state !== "idle") return;
+        if (stateRef.current !== "idle") return;
         setIncoming({ id: c.id, callerId: c.caller_id, calleeId: c.callee_id, callType: c.call_type });
         setState("ringing");
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [myUserId, state]);
+  }, [myUserId]);
 
   return {
     state, incoming, active, muted, cameraOff,
