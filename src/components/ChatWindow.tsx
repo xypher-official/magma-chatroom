@@ -108,6 +108,7 @@ const ChatWindow = ({
   const [showSched, setShowSched] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showExpanded, setShowExpanded] = useState(false);
   const loc = useLocationShare(myUserId);
   const { iBlocked, blockedMe, block, unblock } = useBlocks(myUserId);
   const kb = useKeyboardPref(myUserId);
@@ -283,7 +284,7 @@ const ChatWindow = ({
                   }`}
                 >
                   {!isDeleted && (isOwn || canDeleteMessages) && (
-                    <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute -top-2 -right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
                       {isOwn && !msg.media_url && (
                         <button onClick={() => { setEditingId(msg.id); setEditingText(msg.content); }}
                           title="Edit" className="bg-primary text-primary-foreground rounded-full p-1 shadow-lg">
@@ -400,6 +401,11 @@ const ChatWindow = ({
               placeholder={t("chat.placeholder")}
               className="flex-1 px-4 py-2.5 rounded-xl bg-muted text-foreground placeholder:text-muted-foreground text-sm outline-none focus:ring-2 focus:ring-ring/30 transition-all"
             />
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowExpanded(true)} title="Expandir el cuadro de texto"
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+              <Maximize2 size={18} />
+            </motion.button>
             <motion.button
               whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
               onClick={handleSend} disabled={!input.trim()}
