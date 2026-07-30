@@ -448,6 +448,11 @@ const ChatWindow = ({
           onStartCall={onStartCall} onSchedule={() => setShowSched(true)} />
       )}
       <ScheduleCallDialog open={showSched} onClose={() => setShowSched(false)} myUserId={myUserId} />
+      <ExpandedComposer open={showExpanded} value={input}
+        onChange={(v) => { setInput(v); sendTyping(); }}
+        onClose={() => setShowExpanded(false)}
+        onSend={() => { handleSend(); setShowExpanded(false); }}
+        placeholder={t("chat.placeholder")} title={contactName} />
       <LiveLocationMap open={showMap} onClose={() => setShowMap(false)} myUserId={myUserId}
         conversationId={messages[0]?.conversation_id} contactName={contactName}
         mySharing={loc.sharing} onStopMine={() => { loc.stop(); setShowMap(false); }} />
