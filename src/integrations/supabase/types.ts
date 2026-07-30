@@ -383,6 +383,8 @@ export type Database = {
           channel_id: string | null
           content: string
           created_at: string
+          deleted_at: string | null
+          edited_at: string | null
           group_id: string
           id: string
           is_system: boolean
@@ -394,6 +396,8 @@ export type Database = {
           channel_id?: string | null
           content: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           group_id: string
           id?: string
           is_system?: boolean
@@ -405,6 +409,8 @@ export type Database = {
           channel_id?: string | null
           content?: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           group_id?: string
           id?: string
           is_system?: boolean
@@ -626,6 +632,8 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          deleted_at: string | null
+          edited_at: string | null
           id: string
           is_system: boolean
           media_type: string | null
@@ -637,6 +645,8 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           is_system?: boolean
           media_type?: string | null
@@ -648,6 +658,8 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           is_system?: boolean
           media_type?: string | null

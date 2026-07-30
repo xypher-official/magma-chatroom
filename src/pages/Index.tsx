@@ -23,6 +23,7 @@ import InviteToGroupDialog from "@/components/InviteToGroupDialog";
 import Email2FAGate, { passed2FA, consume2FA } from "@/components/Email2FAGate";
 import SiteModeGate from "@/components/SiteModeGate";
 import GlobalAnnouncementOverlay from "@/components/GlobalAnnouncementOverlay";
+import IosInstallTip from "@/components/IosInstallTip";
 import { useWebRTCCall } from "@/hooks/useWebRTCCall";
 import { useNotifications } from "@/hooks/useNotifications";
 import { toast } from "sonner";
@@ -305,6 +306,7 @@ const Index = () => {
       )}
 
       <GlobalAnnouncementOverlay enabled={!!session} />
+      <IosInstallTip />
 
       {showAdmin && isAdmin && <AdminPanel onClose={() => setShowAdmin(false)} profiles={Object.values(profiles)} />}
       {showNewChat && session && (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus } from "lucide-react";
+import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus, Maximize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
@@ -11,6 +11,7 @@ import VoiceMessageBubble from "./VoiceMessageBubble";
 import { useAutoTranslate } from "@/hooks/useAutoTranslate";
 import { useTyping } from "@/hooks/useTyping";
 import TypingIndicator from "./TypingIndicator";
+import ExpandedComposer from "./ExpandedComposer";
 
 const TranslatedGroupText = ({ text }: { text: string }) => {
   const translated = useAutoTranslate(text);
@@ -52,6 +53,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeChannel, setActiveChannel] = useState<string | null>(null);
   const [showChannels, setShowChannels] = useState(false);
+  const [showExpanded, setShowExpanded] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const typingKey = activeChannel ? `grp-${group.id}-${activeChannel}` : `grp-${group.id}`;
   const myName = profiles[myUserId]?.display_name;
@@ -238,7 +240,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
                 className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                 <div className={`group relative max-w-[75%] px-3 py-2 rounded-2xl overflow-hidden ${isDeleted ? "bg-muted/40 text-muted-foreground italic border border-border rounded-bl-md" : isOwn ? "magma-gradient text-primary-foreground rounded-br-md magma-glow-sm" : "glass-panel-strong text-foreground rounded-bl-md"}`}>
                   {!isDeleted && canEditDelete && (
-                    <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute -top-2 -right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
                       {isOwn && !msg.media_url && (
                         <button onClick={() => { setEditingId(msg.id); setEditingText(msg.content); }}
                           className="bg-primary text-primary-foreground rounded-full p-1 shadow-lg"><Pencil size={11}/></button>
@@ -332,6 +334,11 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
               onInput={sendTyping}
               placeholder={t("chat.placeholder")}
               className="flex-1 px-4 py-2.5 rounded-xl bg-muted text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/30" />
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowExpanded(true)} title="Expandir el cuadro de texto"
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+              <Maximize2 size={18} />
+            </motion.button>
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => send()} disabled={!input.trim()}
               className="p-2.5 rounded-xl magma-gradient text-primary-foreground disabled:opacity-40 magma-glow-sm">
               <Send size={18} />
@@ -339,6 +346,11 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
           </div>
         )}
       </div>
+      <ExpandedComposer open={showExpanded} value={input}
+        onChange={(v) => { setInput(v); sendTyping(); }}
+        onClose={() => setShowExpanded(false)}
+        onSend={() => { send(); setShowExpanded(false); }}
+        placeholder={t("chat.placeholder")} title={`${group.name} · #${activeChannelName}`} />
       </div>
     </div>
   );
