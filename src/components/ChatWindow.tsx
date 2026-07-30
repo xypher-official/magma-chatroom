@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser } from "lucide-react";
+import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser, Maximize2 } from "lucide-react";
+import ExpandedComposer from "./ExpandedComposer";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
