@@ -10,6 +10,8 @@ import {
   Heart, MessageCircle, Eye, Trash2, Pencil, Pause, CalendarClock, Film, Clapperboard, X, Send, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import MagmaVideoPlayer from "@/components/MagmaVideoPlayer";
+import { Code2, Copy } from "lucide-react";
 
 type VideoRow = {
   id: string;
@@ -469,13 +471,30 @@ const PlayerDialog = ({ video, myUserId, profiles, onClose }: { video: VideoRow;
   };
 
   const author = profiles[video.author_id];
+  const [showEmbed, setShowEmbed] = useState(false);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const embedCode = `<iframe src="${origin}/embed/v/${video.id}" width="100%" height="${video.kind === "short" ? 720 : 405}" style="border:0;border-radius:12px;max-width:${video.kind === "short" ? 405 : 720}px" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="${video.title.replace(/"/g, "&quot;")} · MSocialVideos"></iframe>`;
+  const copyEmbed = async () => {
+    try {
+      await navigator.clipboard.writeText(embedCode);
+      toast.success("Embed HTML copied!");
+    } catch {
+      toast.error("Copy failed — select the code manually");
+    }
+  };
 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto scrollbar-magma p-0">
         <button onClick={onClose} className="absolute top-3 right-3 z-10 p-2 rounded-full bg-background/80 hover:bg-background"><X size={16}/></button>
         <div className="bg-black">
-          <video src={video.video_url} controls autoPlay className={`w-full ${video.kind === "short" ? "max-h-[80vh] mx-auto" : "aspect-video"} bg-black`} />
+          <MagmaVideoPlayer
+            src={video.video_url}
+            poster={video.thumbnail_url}
+            title={video.title}
+            vertical={video.kind === "short"}
+            autoPlay
+          />
         </div>
         <div className="p-5 space-y-4">
           <div>
@@ -484,6 +503,22 @@ const PlayerDialog = ({ video, myUserId, profiles, onClose }: { video: VideoRow;
               {author?.display_name || "Unknown"} · {video.views_count + 1} views · {fmtTime(video.created_at)}
             </p>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" className="glass-panel" onClick={() => setShowEmbed((s) => !s)}>
+              <Code2 size={14} className="mr-1.5" /> Embed
+            </Button>
+            <Button size="sm" className="magma-gradient text-primary-foreground" onClick={copyEmbed}>
+              <Copy size={14} className="mr-1.5" /> Copy HTML embed
+            </Button>
+          </div>
+          {showEmbed && (
+            <div className="space-y-2">
+              <pre className="glass-panel rounded-lg p-3 text-[11px] leading-relaxed text-foreground/90 overflow-x-auto scrollbar-magma"><code>{embedCode}</code></pre>
+              <p className="text-[11px] text-muted-foreground">
+                Paste this on any site — it renders the modern MSocialVideos player with settings and a “Watch On MSocialVideos” button.
+              </p>
+            </div>
+          )}
           {video.description && (
             <p className="text-sm text-foreground/90 whitespace-pre-wrap glass-panel p-3 rounded-lg">{video.description}</p>
           )}
