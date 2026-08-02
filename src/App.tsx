@@ -11,6 +11,7 @@ import CallPage from "./pages/CallPage.tsx";
 import EventStudio from "./pages/EventStudio.tsx";
 import SharedLocationPage from "./pages/SharedLocationPage.tsx";
 import SitePageView from "./pages/SitePageView.tsx";
+import EmbedVideoPage from "./pages/EmbedVideo.tsx";
 import { UiSettingsProvider } from "@/hooks/useUiSettings";
 import { I18nProvider } from "@/hooks/useI18n";
 
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/studio/events" element={<EventStudio />} />
           <Route path="/call/:roomId" element={<CallPage />} />
           <Route path="/share/loc/:shareId" element={<SharedLocationPage />} />
+          <Route path="/embed/v/:videoId" element={<EmbedVideoPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           {/* Dynamic site sections and user-created custom slugs (supports nested like /social/videos) */}
           <Route path="/social/videos" element={<SitePageView />} />
