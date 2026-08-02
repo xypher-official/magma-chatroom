@@ -2,13 +2,6 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const ensurePermission = async () => {
-  if (typeof Notification === "undefined") return;
-  if (Notification.permission === "default") {
-    try { await Notification.requestPermission(); } catch { /* ignore */ }
-  }
-};
-
 const notify = (title: string, body: string, icon?: string) => {
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     try { new Notification(title, { body, icon, badge: icon }); } catch { /* ignore */ }
@@ -25,8 +18,6 @@ export const useNotifications = (
     msgs: new Set(), calls: new Set(), users: new Set(),
   });
   const bootRef = useRef(false);
-
-  useEffect(() => { ensurePermission(); }, []);
 
   // Seed "seen" so we don't notify for things that already exist on first load
   useEffect(() => {

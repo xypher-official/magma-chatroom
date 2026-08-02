@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useI18n } from "@/hooks/useI18n";
 import { LANGS, type Lang } from "@/i18n/translations";
 import { useKeyboardPref, type KbTheme } from "@/hooks/useKeyboardPref";
+import NotificationSetup from "@/components/NotificationSetup";
 
 interface Props {
   onClose: () => void;
@@ -27,7 +28,7 @@ const SettingsDialog = ({ onClose, myUserId, displayName, allowDms, avatarUrl, a
   const [genLoading, setGenLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"profile" | "language" | "keyboard" | "security" | "account">("profile");
+  const [tab, setTab] = useState<"profile" | "language" | "keyboard" | "security" | "notifications" | "account">("profile");
   const kb = useKeyboardPref(myUserId);
   const [emailInput, setEmailInput] = useState("");
   const [emailVerified, setEmailVerified] = useState<string | null>(null);
@@ -138,6 +139,7 @@ const SettingsDialog = ({ onClose, myUserId, displayName, allowDms, avatarUrl, a
     { key: "language", label: t("settings.language"), Icon: Globe },
     { key: "keyboard" as any, label: "Teclado", Icon: Keyboard as any },
     { key: "security" as any, label: "Mail", Icon: ShieldCheck as any },
+    { key: "notifications" as any, label: "Avisos", Icon: Bell as any },
     { key: "account", label: t("settings.account"), Icon: Bell },
   ] as any;
 
@@ -242,6 +244,11 @@ const SettingsDialog = ({ onClose, myUserId, displayName, allowDms, avatarUrl, a
                 </motion.div>
               )}
 
+              {tab === "notifications" && (
+                <motion.div key="notif" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+                  <NotificationSetup />
+                </motion.div>
+              )}
               {tab === "account" && (
                 <motion.div key="account" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-3">
                   <label className="flex items-center justify-between p-4 rounded-xl bg-muted/40 cursor-pointer">
