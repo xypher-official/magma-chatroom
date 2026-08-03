@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   Play, Plus, Upload, Link as LinkIcon, Sparkles, Image as ImageIcon,
   Heart, MessageCircle, Eye, Trash2, Pencil, Pause, CalendarClock, Film, Clapperboard, X, Send, Clock,
+  Search, Users, Zap, Flame,
 } from "lucide-react";
 import { toast } from "sonner";
 import MagmaVideoPlayer from "@/components/MagmaVideoPlayer";
