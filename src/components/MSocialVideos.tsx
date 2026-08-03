@@ -146,7 +146,7 @@ const MSocialVideos = ({ myUserId, isAdmin, profiles }: Props) => {
         whileHover={{ y: -4 }} transition={{ duration: 0.3 }}
         className="group rounded-2xl overflow-hidden glass-panel border border-border hover:border-primary/40 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all">
         <button onClick={() => !isScheduledFuture && !isPremiereFuture && setPlayer(v)}
-          className={`relative w-full overflow-hidden bg-muted ${isShort ? "aspect-[9/16]" : "aspect-video"}`}>
+          className={`relative w-full overflow-hidden bg-muted ${isShort && (compact || tab === "short") ? "aspect-[9/16]" : "aspect-video"}`}>
           {v.thumbnail_url ? (
             <img src={v.thumbnail_url} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
           ) : (
