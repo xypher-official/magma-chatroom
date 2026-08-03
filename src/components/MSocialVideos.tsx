@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import {
   Play, Plus, Upload, Link as LinkIcon, Sparkles, Image as ImageIcon,
   Heart, MessageCircle, Eye, Trash2, Pencil, Pause, CalendarClock, Film, Clapperboard, X, Send, Clock,
+  Search, Users, Zap, Flame,
 } from "lucide-react";
 import { toast } from "sonner";
 import MagmaVideoPlayer from "@/components/MagmaVideoPlayer";
@@ -44,7 +45,10 @@ const fmtTime = (iso: string) => {
 
 const MSocialVideos = ({ myUserId, isAdmin, profiles }: Props) => {
   const [videos, setVideos] = useState<VideoRow[]>([]);
-  const [tab, setTab] = useState<"all" | "long" | "short">("all");
+  const [tab, setTab] = useState<"home" | "long" | "short" | "channels">("home");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"recent" | "views" | "likes" | "old">("recent");
+  const [channel, setChannel] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [editing, setEditing] = useState<VideoRow | null>(null);
   const [player, setPlayer] = useState<VideoRow | null>(null);
@@ -69,11 +73,45 @@ const MSocialVideos = ({ myUserId, isAdmin, profiles }: Props) => {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  const visible = useMemo(() => videos.filter((v) => {
-    if (tab === "long" && v.kind !== "long") return false;
-    if (tab === "short" && v.kind !== "short") return false;
-    return true;
-  }), [videos, tab]);
+  const q = query.trim().toLowerCase();
+
+  const channels = useMemo(() => {
+    const map = new Map<string, { id: string; videos: number; views: number; likes: number; last: string }>();
+    videos.forEach((v) => {
+      const c = map.get(v.author_id) ?? { id: v.author_id, videos: 0, views: 0, likes: 0, last: v.created_at };
+      c.videos += 1; c.views += v.views_count; c.likes += v.likes_count;
+      if (v.created_at > c.last) c.last = v.created_at;
+      map.set(v.author_id, c);
+    });
+    let list = [...map.values()];
+    if (q) list = list.filter((c) => (profiles[c.id]?.display_name ?? "").toLowerCase().includes(q));
+    return list.sort((a, b) => b.views - a.views || b.videos - a.videos);
+  }, [videos, q, profiles]);
+
+  const visible = useMemo(() => {
+    let list = videos.filter((v) => {
+      if (channel && v.author_id !== channel) return false;
+      if (tab === "long" && v.kind !== "long") return false;
+      if (tab === "short" && v.kind !== "short") return false;
+      if (q) {
+        const author = (profiles[v.author_id]?.display_name ?? "").toLowerCase();
+        if (!`${v.title} ${v.description}`.toLowerCase().includes(q) && !author.includes(q)) return false;
+      }
+      return true;
+    });
+    list = [...list].sort((a, b) => {
+      if (sort === "views") return b.views_count - a.views_count;
+      if (sort === "likes") return b.likes_count - a.likes_count;
+      if (sort === "old") return +new Date(a.created_at) - +new Date(b.created_at);
+      return +new Date(b.created_at) - +new Date(a.created_at);
+    });
+    return list;
+  }, [videos, tab, q, sort, channel, profiles]);
+
+  const shortsRow = useMemo(
+    () => videos.filter((v) => v.kind === "short" && v.status !== "suspended").slice(0, 12),
+    [videos],
+  );
 
   const toggleLike = async (v: VideoRow) => {
     if (!myUserId) return;
@@ -96,121 +134,235 @@ const MSocialVideos = ({ myUserId, isAdmin, profiles }: Props) => {
     toast.success(next === "suspended" ? "Suspended" : "Restored");
   };
 
+  const Card = ({ v, compact }: { v: VideoRow; compact?: boolean }) => {
+    const author = profiles[v.author_id];
+    const isOwner = v.author_id === myUserId;
+    const isShort = v.kind === "short";
+    const isScheduledFuture = v.status === "scheduled" && v.scheduled_at && new Date(v.scheduled_at) > new Date();
+    const isPremiereFuture = v.is_premiere && v.premiere_at && new Date(v.premiere_at) > new Date();
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -4 }} transition={{ duration: 0.3 }}
+        className="group rounded-2xl overflow-hidden glass-panel border border-border hover:border-primary/40 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all">
+        <button onClick={() => !isScheduledFuture && !isPremiereFuture && setPlayer(v)}
+          className={`relative w-full overflow-hidden bg-muted ${isShort && (compact || tab === "short") ? "aspect-[9/16]" : "aspect-video"}`}>
+          {v.thumbnail_url ? (
+            <img src={v.thumbnail_url} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+          ) : (
+            <div className="w-full h-full magma-gradient flex items-center justify-center">
+              <Film className="text-primary-foreground/80" size={42} />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="w-14 h-14 rounded-full magma-gradient flex items-center justify-center magma-glow-sm">
+              <Play className="text-primary-foreground ml-1" size={22} fill="currentColor" />
+            </div>
+          </div>
+          {isShort && (
+            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-destructive text-destructive-foreground">SHORT</span>
+          )}
+          {isPremiereFuture && (
+            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-accent text-accent-foreground flex items-center gap-1"><Sparkles size={10}/>PREMIERE</span>
+          )}
+          {isScheduledFuture && (
+            <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-black flex items-center gap-1"><Clock size={10}/>SCHEDULED</span>
+          )}
+          {v.status === "suspended" && (
+            <div className="absolute inset-0 bg-background/80 flex items-center justify-center backdrop-blur-sm">
+              <span className="text-xs font-bold text-destructive">SUSPENDED</span>
+            </div>
+          )}
+        </button>
+        <div className="p-3">
+          <div className="flex gap-2">
+            <button onClick={() => { setChannel(v.author_id); setTab("home"); }}
+              className="w-8 h-8 shrink-0 rounded-full magma-gradient overflow-hidden flex items-center justify-center text-[10px] font-bold text-primary-foreground">
+              {author?.avatar_url ? <img src={author.avatar_url} alt="" className="w-full h-full object-cover" /> : (author?.avatar_initials ?? "??")}
+            </button>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-sm text-foreground line-clamp-2">{v.title || "Untitled"}</h3>
+              <button onClick={() => { setChannel(v.author_id); setTab("home"); }}
+                className="text-xs text-muted-foreground hover:text-primary truncate block max-w-full text-left">
+                {author?.display_name || "Unknown"} · {fmtTime(v.created_at)}
+              </button>
+            </div>
+          </div>
+          {!compact && (
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-2">
+              <span className="flex items-center gap-1"><Eye size={12}/>{v.views_count}</span>
+              <button onClick={(e) => { e.stopPropagation(); toggleLike(v); }}
+                className={`flex items-center gap-1 hover:text-primary ${likedIds.has(v.id) ? "text-destructive" : ""}`}>
+                <Heart size={12} fill={likedIds.has(v.id) ? "currentColor" : "none"}/>{v.likes_count}
+              </button>
+              <span className="flex items-center gap-1"><MessageCircle size={12}/>{v.comments_count}</span>
+              {isScheduledFuture && (
+                <span className="flex items-center gap-1 ml-auto text-amber-500"><CalendarClock size={11}/>{new Date(v.scheduled_at!).toLocaleString()}</span>
+              )}
+            </div>
+          )}
+          {(isOwner || isAdmin) && (
+            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
+              <button onClick={() => setEditing(v)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-primary" title="Edit">
+                <Pencil size={13}/>
+              </button>
+              {isAdmin && (
+                <button onClick={() => suspend(v)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-amber-500" title="Suspend/Restore">
+                  <Pause size={13}/>
+                </button>
+              )}
+              <button onClick={() => remove(v)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive ml-auto" title="Delete">
+                <Trash2 size={13}/>
+              </button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
+
+  const activeChannel = channel ? profiles[channel] : null;
+
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6">
-      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl magma-gradient flex items-center justify-center text-2xl">
             <Clapperboard className="text-primary-foreground" />
           </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold magma-gradient-text">MSocialVideos</h1>
-            <p className="text-xs text-muted-foreground">Long videos & shorts from the community</p>
+            <p className="text-xs text-muted-foreground">Videos, shorts & creator channels</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-xl glass-panel p-1">
-            {(["all", "long", "short"] as const).map((k) => (
+        {myUserId && (
+          <Button onClick={() => setShowUpload(true)} className="magma-gradient text-primary-foreground gap-1.5">
+            <Plus size={16} /> Upload
+          </Button>
+        )}
+      </div>
+
+      {/* Search + sort */}
+      <div className="sticky top-0 z-20 -mx-4 md:-mx-6 px-4 md:px-6 py-3 backdrop-blur-xl bg-background/70 border-b border-border mb-5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search videos, channels or creators..."
+              className="pl-9 pr-9 rounded-full glass-panel border-border" />
+            {query && (
+              <button onClick={() => setQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div className="flex rounded-full glass-panel p-1 overflow-x-auto scrollbar-magma">
+            {([
+              ["home", "Home", Flame],
+              ["long", "Videos", Film],
+              ["short", "Shorts", Zap],
+              ["channels", "Channels", Users],
+            ] as const).map(([k, label, Icon]) => (
               <button key={k} onClick={() => setTab(k)}
-                className={`px-3 py-1.5 text-xs rounded-lg transition-all ${tab === k ? "magma-gradient text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                {k === "all" ? "All" : k === "long" ? "Videos" : "Shorts"}
+                className={`px-3 py-1.5 text-xs rounded-full transition-all flex items-center gap-1.5 whitespace-nowrap ${tab === k ? "magma-gradient text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                <Icon size={13} /> {label}
               </button>
             ))}
           </div>
-          {myUserId && (
-            <Button onClick={() => setShowUpload(true)} className="magma-gradient text-primary-foreground gap-1.5">
-              <Plus size={16} /> Upload
-            </Button>
+          {tab !== "channels" && (
+            <div className="flex rounded-full glass-panel p-1 overflow-x-auto scrollbar-magma">
+              {([["recent", "New"], ["views", "Popular"], ["likes", "Top liked"], ["old", "Oldest"]] as const).map(([k, label]) => (
+                <button key={k} onClick={() => setSort(k)}
+                  className={`px-2.5 py-1.5 text-[11px] rounded-full whitespace-nowrap ${sort === k ? "bg-primary/20 text-primary font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
 
-      {visible.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground">
-          <Film className="mx-auto mb-3 opacity-50" size={48} />
-          <p>No videos yet. Be the first to upload one!</p>
-        </div>
+      {/* Channel banner */}
+      {channel && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="mb-5 rounded-2xl glass-panel border border-border p-4 flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full magma-gradient overflow-hidden flex items-center justify-center text-lg font-bold text-primary-foreground shrink-0">
+            {activeChannel?.avatar_url ? <img src={activeChannel.avatar_url} alt="" className="w-full h-full object-cover" /> : (activeChannel?.avatar_initials ?? "??")}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-foreground truncate">{activeChannel?.display_name || "Unknown channel"}</h2>
+            <p className="text-xs text-muted-foreground">
+              {videos.filter((v) => v.author_id === channel).length} videos ·{" "}
+              {videos.filter((v) => v.author_id === channel).reduce((s, v) => s + v.views_count, 0)} views
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setChannel(null)} className="gap-1.5">
+            <X size={14} /> Exit channel
+          </Button>
+        </motion.div>
+      )}
+
+      {/* Channels grid */}
+      {tab === "channels" ? (
+        channels.length === 0 ? (
+          <div className="text-center py-20 text-muted-foreground">
+            <Users className="mx-auto mb-3 opacity-50" size={48} />
+            <p>No channels found.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {channels.map((c) => {
+              const p = profiles[c.id];
+              return (
+                <motion.button key={c.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -4 }}
+                  onClick={() => { setChannel(c.id); setTab("home"); }}
+                  className="rounded-2xl glass-panel border border-border hover:border-primary/40 p-4 text-center transition-all">
+                  <div className="w-16 h-16 mx-auto rounded-full magma-gradient overflow-hidden flex items-center justify-center text-lg font-bold text-primary-foreground">
+                    {p?.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover" /> : (p?.avatar_initials ?? "??")}
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-foreground truncate">{p?.display_name || "Unknown"}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{c.videos} videos · {c.views} views</p>
+                  <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1 mt-1"><Heart size={11}/>{c.likes}</p>
+                </motion.button>
+              );
+            })}
+          </div>
+        )
       ) : (
-        <div className={tab === "short"
-          ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"}>
-          {visible.map((v) => {
-            const author = profiles[v.author_id];
-            const isOwner = v.author_id === myUserId;
-            const isShort = v.kind === "short";
-            const isScheduledFuture = v.status === "scheduled" && v.scheduled_at && new Date(v.scheduled_at) > new Date();
-            const isPremiereFuture = v.is_premiere && v.premiere_at && new Date(v.premiere_at) > new Date();
-            return (
-              <motion.div key={v.id}
-                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-                whileHover={{ y: -4 }} transition={{ duration: 0.3 }}
-                className="group rounded-2xl overflow-hidden glass-panel border border-border hover:border-primary/40 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all">
-                <button onClick={() => !isScheduledFuture && !isPremiereFuture && setPlayer(v)}
-                  className={`relative w-full overflow-hidden bg-muted ${isShort ? "aspect-[9/16]" : "aspect-video"}`}>
-                  {v.thumbnail_url ? (
-                    <img src={v.thumbnail_url} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full magma-gradient flex items-center justify-center">
-                      <Film className="text-primary-foreground/80" size={42} />
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="w-14 h-14 rounded-full magma-gradient flex items-center justify-center magma-glow-sm">
-                      <Play className="text-primary-foreground ml-1" size={22} fill="currentColor" />
-                    </div>
+        <>
+          {/* Shorts shelf on Home */}
+          {tab === "home" && !channel && !q && shortsRow.length > 0 && (
+            <div className="mb-7">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap size={16} className="text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Shorts</h2>
+                <button onClick={() => setTab("short")} className="text-[11px] text-primary hover:underline ml-auto">See all</button>
+              </div>
+              <div className="flex gap-3 overflow-x-auto scrollbar-magma pb-2 -mx-1 px-1">
+                {shortsRow.map((v) => (
+                  <div key={v.id} className="w-[150px] sm:w-[170px] shrink-0">
+                    <Card v={v} compact />
                   </div>
-                  {isShort && (
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-destructive text-destructive-foreground">SHORT</span>
-                  )}
-                  {isPremiereFuture && (
-                    <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-accent text-accent-foreground flex items-center gap-1"><Sparkles size={10}/>PREMIERE</span>
-                  )}
-                  {isScheduledFuture && (
-                    <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-black flex items-center gap-1"><Clock size={10}/>SCHEDULED</span>
-                  )}
-                  {v.status === "suspended" && (
-                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center backdrop-blur-sm">
-                      <span className="text-xs font-bold text-destructive">SUSPENDED</span>
-                    </div>
-                  )}
-                </button>
-                <div className="p-3">
-                  <h3 className="font-semibold text-sm text-foreground line-clamp-2 mb-1">{v.title || "Untitled"}</h3>
-                  <p className="text-xs text-muted-foreground mb-2 truncate">
-                    {author?.display_name || "Unknown"} · {fmtTime(v.created_at)}
-                  </p>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1"><Eye size={12}/>{v.views_count}</span>
-                    <button onClick={(e) => { e.stopPropagation(); toggleLike(v); }}
-                      className={`flex items-center gap-1 hover:text-primary ${likedIds.has(v.id) ? "text-destructive" : ""}`}>
-                      <Heart size={12} fill={likedIds.has(v.id) ? "currentColor" : "none"}/>{v.likes_count}
-                    </button>
-                    <span className="flex items-center gap-1"><MessageCircle size={12}/>{v.comments_count}</span>
-                    {isScheduledFuture && (
-                      <span className="flex items-center gap-1 ml-auto text-amber-500"><CalendarClock size={11}/>{new Date(v.scheduled_at!).toLocaleString()}</span>
-                    )}
-                  </div>
-                  {(isOwner || isAdmin) && (
-                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
-                      <button onClick={() => setEditing(v)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-primary" title="Edit">
-                        <Pencil size={13}/>
-                      </button>
-                      {isAdmin && (
-                        <button onClick={() => suspend(v)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-amber-500" title="Suspend/Restore">
-                          <Pause size={13}/>
-                        </button>
-                      )}
-                      <button onClick={() => remove(v)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-destructive ml-auto" title="Delete">
-                        <Trash2 size={13}/>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {visible.length === 0 ? (
+            <div className="text-center py-20 text-muted-foreground">
+              <Film className="mx-auto mb-3 opacity-50" size={48} />
+              <p>{q ? `No results for "${query}"` : "No videos yet. Be the first to upload one!"}</p>
+            </div>
+          ) : (
+            <div className={tab === "short"
+              ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+              : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"}>
+              {visible.map((v) => <Card key={v.id} v={v} />)}
+            </div>
+          )}
+        </>
       )}
 
       {showUpload && myUserId && (
