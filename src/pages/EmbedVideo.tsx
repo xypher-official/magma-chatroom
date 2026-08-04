@@ -35,7 +35,7 @@ const EmbedVideoPage = () => {
     return () => { done = true; };
   }, [videoId]);
 
-  const watchUrl = `${window.location.origin}/social/videos?v=${videoId}`;
+  const watchUrl = `${window.location.origin}/video/watch/${videoId}`;
 
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-black">

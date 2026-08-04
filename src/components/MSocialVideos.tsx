@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ const fmtTime = (iso: string) => {
 };
 
 const MSocialVideos = ({ myUserId, isAdmin, profiles }: Props) => {
+  const nav = useNavigate();
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [tab, setTab] = useState<"home" | "long" | "short" | "channels">("home");
   const [query, setQuery] = useState("");
@@ -145,7 +147,7 @@ const MSocialVideos = ({ myUserId, isAdmin, profiles }: Props) => {
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         whileHover={{ y: -4 }} transition={{ duration: 0.3 }}
         className="group rounded-2xl overflow-hidden glass-panel border border-border hover:border-primary/40 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all">
-        <button onClick={() => !isScheduledFuture && !isPremiereFuture && setPlayer(v)}
+        <button onClick={() => !isScheduledFuture && !isPremiereFuture && nav(`/video/watch/${v.id}`)}
           className={`relative w-full overflow-hidden bg-muted ${isShort && (compact || tab === "short") ? "aspect-[9/16]" : "aspect-video"}`}>
           {v.thumbnail_url ? (
             <img src={v.thumbnail_url} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
