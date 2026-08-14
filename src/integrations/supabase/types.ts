@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_providers: {
+        Row: {
+          api_key: string
+          base_url: string
+          created_at: string
+          enabled: boolean
+          id: string
+          is_active: boolean
+          label: string
+          model: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string
+          base_url?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_active?: boolean
+          label?: string
+          model?: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          base_url?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_active?: boolean
+          label?: string
+          model?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       broadcasts: {
         Row: {
           content: string
@@ -1107,6 +1146,39 @@ export type Database = {
           created_at?: string
           id?: string
           subscriber_id?: string
+        }
+        Relationships: []
+      }
+      text_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          from_text: string
+          id: string
+          match_mode: string
+          to_text: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          from_text: string
+          id?: string
+          match_mode?: string
+          to_text: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          from_text?: string
+          id?: string
+          match_mode?: string
+          to_text?: string
+          updated_at?: string
         }
         Relationships: []
       }
