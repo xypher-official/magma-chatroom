@@ -486,6 +486,38 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const messages = body.messages as Array<{ role: string; content: string }>;
 
+    // Resolve which AI backend to use: the owner's own provider key if one is
+    // active, otherwise the built-in Lovable AI gateway.
+    const { data: activeProvider } = await admin
+      .from("ai_providers")
+      .select("provider, api_key, base_url, model")
+      .eq("is_active", true).eq("enabled", true)
+      .maybeSingle();
+
+    let endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    let apiKey = LOVABLE_API_KEY;
+    let model = "google/gemini-2.5-flash";
+    let usedProvider = "lovable";
+    const extraHeaders: Record<string, string> = {};
+
+    if (activeProvider?.api_key && activeProvider.model) {
+      const base = (activeProvider.base_url || PROVIDER_BASES[activeProvider.provider] || "").replace(/\/+$/, "");
+      if (base) {
+        endpoint = `${base}/chat/completions`;
+        apiKey = activeProvider.api_key;
+        model = activeProvider.model;
+        usedProvider = activeProvider.provider;
+        if (activeProvider.provider === "openrouter") {
+          extraHeaders["HTTP-Referer"] = "https://magma-chatroom.lovable.app";
+          extraHeaders["X-Title"] = "Magma Chat Room MAGAI";
+        }
+        if (activeProvider.provider === "anthropic") {
+          extraHeaders["anthropic-version"] = "2023-06-01";
+          extraHeaders["x-api-key"] = activeProvider.api_key;
+        }
+      }
+    }
+
     const systemPrompt = `Eres MAGMA-AI, la consola de administración del owner XypherDev en Magma Chat Room.
 Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo (con cuenta regresiva via schedule_event), efectos visuales globales (set_effect: snow, hats, confetti, rain, fireworks), grupos, tokens UI, tema (colores HSL), páginas del sitio (menú ☰, HTML completo), anuncios globales en vivo (launch_announcement, estilo Strongest Battlegrounds) y posición del botón del menú ☰.
 Reglas:
@@ -504,14 +536,15 @@ Reglas:
     let finalText = "";
 
     for (let iter = 0; iter < 10; iter++) {
-      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiRes = await fetch(endpoint, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: conv, tools }),
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", ...extraHeaders },
+        body: JSON.stringify({ model, messages: conv, tools }),
       });
-      if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Rate limit excedido, intenta más tarde." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (aiRes.status === 402) return new Response(JSON.stringify({ error: "Sin créditos en el workspace de Lovable AI." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (!aiRes.ok) { const t = await aiRes.text(); throw new Error(`AI gateway: ${aiRes.status} ${t}`); }
+      if (aiRes.status === 429) return new Response(JSON.stringify({ error: `Rate limit excedido en ${usedProvider}, intenta más tarde o cambia de modelo.` }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (aiRes.status === 402) return new Response(JSON.stringify({ error: `Sin créditos en ${usedProvider}.` }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (aiRes.status === 401 || aiRes.status === 403) return new Response(JSON.stringify({ error: `API key de ${usedProvider} inválida o sin permisos.` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!aiRes.ok) { const t = await aiRes.text(); throw new Error(`${usedProvider} (${model}): ${aiRes.status} ${t.slice(0, 400)}`); }
 
       const data = await aiRes.json();
       const msg = data.choices?.[0]?.message;
@@ -533,7 +566,7 @@ Reglas:
       finalText = msg.content ?? "";
       break;
     }
-    return new Response(JSON.stringify({ reply: finalText || "(sin respuesta)" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ reply: finalText || "(sin respuesta)", provider: usedProvider, model }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
