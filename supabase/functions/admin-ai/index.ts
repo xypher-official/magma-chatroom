@@ -11,6 +11,20 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+// OpenAI-compatible chat/completions base URL per provider.
+const PROVIDER_BASES: Record<string, string> = {
+  openrouter: "https://openrouter.ai/api/v1",
+  openai: "https://api.openai.com/v1",
+  anthropic: "https://api.anthropic.com/v1",
+  google: "https://generativelanguage.googleapis.com/v1beta/openai",
+  groq: "https://api.groq.com/openai/v1",
+  mistral: "https://api.mistral.ai/v1",
+  deepseek: "https://api.deepseek.com/v1",
+  together: "https://api.together.xyz/v1",
+  xai: "https://api.x.ai/v1",
+  cerebras: "https://api.cerebras.ai/v1",
+};
+
 const tools = [
   // --- Users ---
   { type: "function", function: { name: "find_user", description: "Busca usuarios por username o display_name (parcial).", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
@@ -72,6 +86,12 @@ const tools = [
   // --- Pages menu position ---
   { type: "function", function: { name: "set_pages_menu_position", description: "Cambia la posición del botón ☰ que abre las secciones. Valores: top-left, top-right, bottom-left, bottom-right.", parameters: { type: "object", properties: { position: { type: "string" } }, required: ["position"] } } },
   { type: "function", function: { name: "reorder_page", description: "Cambia la posición de una página en el menú ☰. position menor = más arriba.", parameters: { type: "object", properties: { slug: { type: "string" }, position: { type: "number" } }, required: ["slug", "position"] } } },
+  // --- Texto global del sitio ("código") ---
+  { type: "function", function: { name: "set_text_override", description: "Reemplaza CUALQUIER texto visible del sitio por otro, en toda la app (botones, labels, títulos, menús). match_mode: exact (texto completo igual) o contains (subcadena). Úsalo cuando el texto no corresponde a un token UI conocido.", parameters: { type: "object", properties: { from_text: { type: "string" }, to_text: { type: "string" }, match_mode: { type: "string" }, enabled: { type: "boolean" } }, required: ["from_text", "to_text"] } } },
+  { type: "function", function: { name: "list_text_overrides", description: "Lista los reemplazos de texto global activos.", parameters: { type: "object", properties: {} } } },
+  { type: "function", function: { name: "delete_text_override", description: "Elimina un reemplazo de texto global.", parameters: { type: "object", properties: { from_text: { type: "string" } }, required: ["from_text"] } } },
+  { type: "function", function: { name: "set_custom_css", description: "Inyecta CSS global personalizado en todo el sitio (se aplica en vivo a todos). Envía '' para quitarlo.", parameters: { type: "object", properties: { css: { type: "string" } }, required: ["css"] } } },
+  { type: "function", function: { name: "get_custom_css", description: "Devuelve el CSS global personalizado actual.", parameters: { type: "object", properties: {} } } },
 ];
 
 async function getOrCreateSupport(admin: ReturnType<typeof createClient>) {
@@ -418,6 +438,35 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
     await admin.from("site_pages").update({ position: Number(args.position) }).eq("slug", args.slug);
     return { ok: true };
   }
+  if (name === "set_text_override") {
+    const mode = args.match_mode === "contains" ? "contains" : "exact";
+    const { error } = await admin.from("text_overrides").upsert({
+      from_text: String(args.from_text),
+      to_text: String(args.to_text),
+      match_mode: mode,
+      enabled: args.enabled === undefined ? true : !!args.enabled,
+      created_by: adminUserId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "from_text" });
+    if (error) return { error: error.message };
+    return { ok: true, from_text: args.from_text, to_text: args.to_text, match_mode: mode };
+  }
+  if (name === "list_text_overrides") {
+    const { data } = await admin.from("text_overrides").select("from_text, to_text, match_mode, enabled").order("from_text");
+    return { overrides: data ?? [] };
+  }
+  if (name === "delete_text_override") {
+    await admin.from("text_overrides").delete().eq("from_text", String(args.from_text));
+    return { ok: true };
+  }
+  if (name === "set_custom_css") {
+    await admin.from("ui_settings").upsert({ key: "site.custom_css", value: String(args.css ?? ""), updated_at: new Date().toISOString() }, { onConflict: "key" });
+    return { ok: true };
+  }
+  if (name === "get_custom_css") {
+    const { data } = await admin.from("ui_settings").select("value").eq("key", "site.custom_css").maybeSingle();
+    return { css: data?.value ?? "" };
+  }
   return { error: "unknown tool" };
 }
 
@@ -437,6 +486,38 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const messages = body.messages as Array<{ role: string; content: string }>;
 
+    // Resolve which AI backend to use: the owner's own provider key if one is
+    // active, otherwise the built-in Lovable AI gateway.
+    const { data: activeProvider } = await admin
+      .from("ai_providers")
+      .select("provider, api_key, base_url, model")
+      .eq("is_active", true).eq("enabled", true)
+      .maybeSingle();
+
+    let endpoint = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    let apiKey = LOVABLE_API_KEY;
+    let model = "google/gemini-2.5-flash";
+    let usedProvider = "lovable";
+    const extraHeaders: Record<string, string> = {};
+
+    if (activeProvider?.api_key && activeProvider.model) {
+      const base = (activeProvider.base_url || PROVIDER_BASES[activeProvider.provider] || "").replace(/\/+$/, "");
+      if (base) {
+        endpoint = `${base}/chat/completions`;
+        apiKey = activeProvider.api_key;
+        model = activeProvider.model;
+        usedProvider = activeProvider.provider;
+        if (activeProvider.provider === "openrouter") {
+          extraHeaders["HTTP-Referer"] = "https://magma-chatroom.lovable.app";
+          extraHeaders["X-Title"] = "Magma Chat Room MAGAI";
+        }
+        if (activeProvider.provider === "anthropic") {
+          extraHeaders["anthropic-version"] = "2023-06-01";
+          extraHeaders["x-api-key"] = activeProvider.api_key;
+        }
+      }
+    }
+
     const systemPrompt = `Eres MAGMA-AI, la consola de administración del owner XypherDev en Magma Chat Room.
 Tienes poder TOTAL: usuarios, mensajes, banner global, secciones legacy, eventos en vivo (con cuenta regresiva via schedule_event), efectos visuales globales (set_effect: snow, hats, confetti, rain, fireworks), grupos, tokens UI, tema (colores HSL), páginas del sitio (menú ☰, HTML completo), anuncios globales en vivo (launch_announcement, estilo Strongest Battlegrounds) y posición del botón del menú ☰.
 Reglas:
@@ -447,6 +528,8 @@ Reglas:
 - IMPORTANTE: El contenido de páginas (create_page / update_page) DEBE entregarse como HTML completo y rico, NO como markdown plano. Usa <section>, <header>, <h1>-<h3>, <p>, <ul>, <a>, <img>, <strong>, <em>, <blockquote>, <div class="...">, <button>, estilos inline (style="..."), grids y tarjetas. Aprovecha clases Tailwind como "rounded-2xl", "p-6", "bg-gradient-to-br", "text-amber-400", "grid grid-cols-2 gap-4", etc. para que las secciones se vean increíbles. Nunca uses <script>.
 - Para anuncios urgentes/importantes a todo el sitio en vivo usa launch_announcement (no broadcast, que es solo mensajes en chats). Elige color e ícono apropiados al tono.
 - Para mover el botón del menú ☰ usa set_pages_menu_position. Para reordenar páginas en el menú usa reorder_page.
+- PODER TOTAL SOBRE LOS TEXTOS DEL SITIO: cualquier texto visible se puede cambiar. Si el texto es un token conocido usa set_ui_setting; si no lo es (cualquier palabra, frase o botón del sitio) usa set_text_override con from_text = el texto exacto actual y to_text = el nuevo. match_mode="contains" para subcadenas.
+- Para cambios de estilo/CSS globales (fuentes, tamaños, colores, animaciones, ocultar elementos) usa set_custom_css con CSS válido; primero get_custom_css para no borrar lo existente. Nunca uses JavaScript.
 - Confirma cada acción con un mensaje breve y un emoji (🔥 ✅ ⚠️ 🗑️ 👑 💬 📢 🎬 📰 👥 🎨 📄).
 - Nunca actúes sobre el usuario oficial (chatroom_support).
 - Sé conciso, directo, en español.`;
@@ -455,14 +538,15 @@ Reglas:
     let finalText = "";
 
     for (let iter = 0; iter < 10; iter++) {
-      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiRes = await fetch(endpoint, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: conv, tools }),
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", ...extraHeaders },
+        body: JSON.stringify({ model, messages: conv, tools }),
       });
-      if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Rate limit excedido, intenta más tarde." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (aiRes.status === 402) return new Response(JSON.stringify({ error: "Sin créditos en el workspace de Lovable AI." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (!aiRes.ok) { const t = await aiRes.text(); throw new Error(`AI gateway: ${aiRes.status} ${t}`); }
+      if (aiRes.status === 429) return new Response(JSON.stringify({ error: `Rate limit excedido en ${usedProvider}, intenta más tarde o cambia de modelo.` }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (aiRes.status === 402) return new Response(JSON.stringify({ error: `Sin créditos en ${usedProvider}.` }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (aiRes.status === 401 || aiRes.status === 403) return new Response(JSON.stringify({ error: `API key de ${usedProvider} inválida o sin permisos.` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!aiRes.ok) { const t = await aiRes.text(); throw new Error(`${usedProvider} (${model}): ${aiRes.status} ${t.slice(0, 400)}`); }
 
       const data = await aiRes.json();
       const msg = data.choices?.[0]?.message;
@@ -484,7 +568,7 @@ Reglas:
       finalText = msg.content ?? "";
       break;
     }
-    return new Response(JSON.stringify({ reply: finalText || "(sin respuesta)" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ reply: finalText || "(sin respuesta)", provider: usedProvider, model }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
