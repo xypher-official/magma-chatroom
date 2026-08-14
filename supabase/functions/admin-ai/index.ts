@@ -11,6 +11,20 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+// OpenAI-compatible chat/completions base URL per provider.
+const PROVIDER_BASES: Record<string, string> = {
+  openrouter: "https://openrouter.ai/api/v1",
+  openai: "https://api.openai.com/v1",
+  anthropic: "https://api.anthropic.com/v1",
+  google: "https://generativelanguage.googleapis.com/v1beta/openai",
+  groq: "https://api.groq.com/openai/v1",
+  mistral: "https://api.mistral.ai/v1",
+  deepseek: "https://api.deepseek.com/v1",
+  together: "https://api.together.xyz/v1",
+  xai: "https://api.x.ai/v1",
+  cerebras: "https://api.cerebras.ai/v1",
+};
+
 const tools = [
   // --- Users ---
   { type: "function", function: { name: "find_user", description: "Busca usuarios por username o display_name (parcial).", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } } },
