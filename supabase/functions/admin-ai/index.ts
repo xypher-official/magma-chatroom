@@ -72,6 +72,12 @@ const tools = [
   // --- Pages menu position ---
   { type: "function", function: { name: "set_pages_menu_position", description: "Cambia la posición del botón ☰ que abre las secciones. Valores: top-left, top-right, bottom-left, bottom-right.", parameters: { type: "object", properties: { position: { type: "string" } }, required: ["position"] } } },
   { type: "function", function: { name: "reorder_page", description: "Cambia la posición de una página en el menú ☰. position menor = más arriba.", parameters: { type: "object", properties: { slug: { type: "string" }, position: { type: "number" } }, required: ["slug", "position"] } } },
+  // --- Texto global del sitio ("código") ---
+  { type: "function", function: { name: "set_text_override", description: "Reemplaza CUALQUIER texto visible del sitio por otro, en toda la app (botones, labels, títulos, menús). match_mode: exact (texto completo igual) o contains (subcadena). Úsalo cuando el texto no corresponde a un token UI conocido.", parameters: { type: "object", properties: { from_text: { type: "string" }, to_text: { type: "string" }, match_mode: { type: "string" }, enabled: { type: "boolean" } }, required: ["from_text", "to_text"] } } },
+  { type: "function", function: { name: "list_text_overrides", description: "Lista los reemplazos de texto global activos.", parameters: { type: "object", properties: {} } } },
+  { type: "function", function: { name: "delete_text_override", description: "Elimina un reemplazo de texto global.", parameters: { type: "object", properties: { from_text: { type: "string" } }, required: ["from_text"] } } },
+  { type: "function", function: { name: "set_custom_css", description: "Inyecta CSS global personalizado en todo el sitio (se aplica en vivo a todos). Envía '' para quitarlo.", parameters: { type: "object", properties: { css: { type: "string" } }, required: ["css"] } } },
+  { type: "function", function: { name: "get_custom_css", description: "Devuelve el CSS global personalizado actual.", parameters: { type: "object", properties: {} } } },
 ];
 
 async function getOrCreateSupport(admin: ReturnType<typeof createClient>) {
@@ -417,6 +423,35 @@ async function executeTool(name: string, args: any, admin: ReturnType<typeof cre
   if (name === "reorder_page") {
     await admin.from("site_pages").update({ position: Number(args.position) }).eq("slug", args.slug);
     return { ok: true };
+  }
+  if (name === "set_text_override") {
+    const mode = args.match_mode === "contains" ? "contains" : "exact";
+    const { error } = await admin.from("text_overrides").upsert({
+      from_text: String(args.from_text),
+      to_text: String(args.to_text),
+      match_mode: mode,
+      enabled: args.enabled === undefined ? true : !!args.enabled,
+      created_by: adminUserId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "from_text" });
+    if (error) return { error: error.message };
+    return { ok: true, from_text: args.from_text, to_text: args.to_text, match_mode: mode };
+  }
+  if (name === "list_text_overrides") {
+    const { data } = await admin.from("text_overrides").select("from_text, to_text, match_mode, enabled").order("from_text");
+    return { overrides: data ?? [] };
+  }
+  if (name === "delete_text_override") {
+    await admin.from("text_overrides").delete().eq("from_text", String(args.from_text));
+    return { ok: true };
+  }
+  if (name === "set_custom_css") {
+    await admin.from("ui_settings").upsert({ key: "site.custom_css", value: String(args.css ?? ""), updated_at: new Date().toISOString() }, { onConflict: "key" });
+    return { ok: true };
+  }
+  if (name === "get_custom_css") {
+    const { data } = await admin.from("ui_settings").select("value").eq("key", "site.custom_css").maybeSingle();
+    return { css: data?.value ?? "" };
   }
   return { error: "unknown tool" };
 }
