@@ -14,6 +14,8 @@ import UiTab from "./UiTab";
 import UserPickerDialog from "./UserPickerDialog";
 import { Search } from "lucide-react";
 import AdminAnnounceTab from "./AdminAnnounceTab";
+import AiProvidersPanel from "./AiProvidersPanel";
+import { Cpu } from "lucide-react";
 
 interface Profile {
   user_id: string;
@@ -30,7 +32,7 @@ interface AdminPanelProps {
   profiles: Profile[];
 }
 
-type Tab = "ai" | "announce" | "broadcast" | "users" | "stats" | "cms" | "events" | "ui";
+type Tab = "ai" | "engine" | "announce" | "broadcast" | "users" | "stats" | "cms" | "events" | "ui";
 
 const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
   const [tab, setTab] = useState<Tab>("ai");
@@ -139,9 +141,10 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
             </button>
           </div>
 
-          <div className="flex border-b border-border bg-muted/30">
+          <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-magma border-b border-border bg-muted/30">
             {([
               ["ai", "IA", Sparkles],
+              ["engine", "Motor IA", Cpu],
               ["announce", "Anuncio", Megaphone],
               ["broadcast", "Mensajes", Megaphone],
               ["users", "Usuarios", Users],
@@ -153,7 +156,7 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-all ${
+                className={`snap-start shrink-0 min-w-[33%] sm:min-w-0 sm:flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-all ${
                   tab === key
                     ? "text-primary border-b-2 border-primary bg-primary/5"
                     : "text-muted-foreground hover:text-foreground"
@@ -166,6 +169,7 @@ const AdminPanel = ({ onClose, profiles }: AdminPanelProps) => {
 
           <div className="flex-1 overflow-y-auto scrollbar-magma p-6">
             {tab === "ai" && <AdminAIConsole />}
+            {tab === "engine" && <AiProvidersPanel />}
             {tab === "announce" && <AdminAnnounceTab myUserId={myUserId} />}
             {tab === "cms" && <CmsTab />}
             {tab === "ui" && <UiTab />}

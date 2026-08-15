@@ -15,14 +15,21 @@ import EmbedVideoPage from "./pages/EmbedVideo.tsx";
 import WatchVideo from "./pages/WatchVideo.tsx";
 import { UiSettingsProvider } from "@/hooks/useUiSettings";
 import { I18nProvider } from "@/hooks/useI18n";
+import { useSiteTextOverrides } from "@/hooks/useSiteTextOverrides";
 
 const queryClient = new QueryClient();
+
+const SiteOverrides = () => {
+  useSiteTextOverrides();
+  return null;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <UiSettingsProvider>
     <I18nProvider>
     <TooltipProvider>
+      <SiteOverrides />
       <Toaster />
       <Sonner />
       <BrowserRouter>
