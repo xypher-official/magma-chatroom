@@ -367,6 +367,8 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
         onClose={() => setShowExpanded(false)}
         onSend={() => { send(); setShowExpanded(false); }}
         placeholder={t("chat.placeholder")} title={`${group.name} · #${activeChannelName}`} />
+      <AttachmentPicker open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
+        onSend={(text, url, kind) => send(url, kind, text)} />
       </div>
     </div>
   );
