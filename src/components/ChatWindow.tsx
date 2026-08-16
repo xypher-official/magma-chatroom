@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser, Maximize2 } from "lucide-react";
+import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser, Maximize2, Paperclip, FileText } from "lucide-react";
 import ExpandedComposer from "./ExpandedComposer";
+import AttachmentPicker from "./AttachmentPicker";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -311,6 +312,15 @@ const ChatWindow = ({
                     <img src={msg.media_url!} alt="" className="rounded-xl mb-1 max-h-72 w-full object-cover" loading="lazy" />
                   )}
                   {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
+                  {!isDeleted && msg.media_url && msg.media_type?.startsWith("video") && (
+                    <video src={msg.media_url} controls className="rounded-xl mb-1 max-h-72 w-full" />
+                  )}
+                  {!isDeleted && msg.media_url && msg.media_type === "file" && (
+                    <a href={msg.media_url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-2 mb-1 px-2 py-2 rounded-xl bg-background/25 text-xs underline">
+                      <FileText size={14} /> Abrir archivo
+                    </a>
+                  )}
                   {isEditing ? (
                     <div className="flex gap-1 items-center min-w-[180px]">
                       <input autoFocus value={editingText} onChange={(e) => setEditingText(e.target.value)}
