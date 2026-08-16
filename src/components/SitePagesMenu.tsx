@@ -48,6 +48,7 @@ const SitePagesMenu = ({ isAdmin, onEditCms }: Props) => {
 
   const builtIn: Page[] = [
     { id: "__msocial_videos__", slug: "social/videos", title: "MSocialVideos", content: "", emoji: "🎬", icon: "Clapperboard", enabled: true, position: -1 },
+    { id: "__magai__", slug: "magai", title: "MAGAI ASSISTANT 🤖", content: "", emoji: "🤖", icon: "Sparkles", enabled: true, position: -1 },
   ];
   const visible = [...builtIn, ...pages.filter((p) => p.enabled || isAdmin)];
 
