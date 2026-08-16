@@ -1,13 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Bot, KeyRound, Send, Sparkles, User, Eye, EyeOff, Trash2, Settings2, Check } from "lucide-react";
+import { ArrowLeft, Bot, KeyRound, Send, Sparkles, User, Eye, EyeOff, Trash2, Settings2, Check, Paperclip, X, History, Plus, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import LavaParticles from "@/components/LavaParticles";
 import MagmaLoader from "@/components/MagmaLoader";
+import AttachmentPicker, { SentKind } from "@/components/AttachmentPicker";
+import { supabase } from "@/integrations/supabase/client";
 
-interface Msg { role: "user" | "assistant"; content: string }
+interface Attachment { url: string; kind: SentKind; name: string }
+interface Msg { role: "user" | "assistant"; content: string; attachments?: Attachment[] }
+interface Conv { id: string; title: string; messages: Msg[]; updatedAt: number }
 
 interface ProviderDef {
   key: string; label: string; baseUrl: string; defaultModel: string; hint: string; extraHeaders?: Record<string, string>;
@@ -40,6 +44,8 @@ const LS = {
   provider: "magai.provider",
   key: (p: string) => `magai.key.${p}`,
   model: (p: string) => `magai.model.${p}`,
+  convs: "magai.convs",
+  active: "magai.activeConv",
 };
 
 const SUGGESTIONS = [
@@ -57,12 +63,40 @@ const MagaiAssistant = () => {
   const [model, setModel] = useState("");
   const [reveal, setReveal] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [convs, setConvs] = useState<Conv[]>(() => {
+    try { return JSON.parse(localStorage.getItem(LS.convs) ?? "[]") as Conv[]; } catch { return []; }
+  });
+  const [activeId, setActiveId] = useState<string>(() => localStorage.getItem(LS.active) ?? "");
+  const [showHistory, setShowHistory] = useState(false);
+  const [showAttach, setShowAttach] = useState(false);
+  const [pending, setPending] = useState<Attachment[]>([]);
+  const [myUserId, setMyUserId] = useState("guest");
   const endRef = useRef<HTMLDivElement>(null);
 
   const def = PROVIDERS.find((p) => p.key === provider)!;
+  const active = convs.find((c) => c.id === activeId);
+  const messages = active?.messages ?? [];
+
+  const persist = useCallback((next: Conv[], id?: string) => {
+    setConvs(next);
+    localStorage.setItem(LS.convs, JSON.stringify(next.slice(0, 60)));
+    if (id !== undefined) { setActiveId(id); localStorage.setItem(LS.active, id); }
+  }, []);
+
+  const writeMessages = (msgs: Msg[]) => {
+    const id = activeId || crypto.randomUUID();
+    const title = msgs.find((m) => m.role === "user")?.content?.slice(0, 48) || "Nueva conversación";
+    const rest = convs.filter((c) => c.id !== id);
+    persist([{ id, title, messages: msgs, updatedAt: Date.now() }, ...rest], id);
+  };
+
+  const newChat = () => { persist(convs, ""); setShowHistory(false); setPending([]); };
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => { if (data.user) setMyUserId(data.user.id); });
+  }, []);
 
   useEffect(() => {
     const k = localStorage.getItem(LS.key(provider)) ?? "";
@@ -87,29 +121,43 @@ const MagaiAssistant = () => {
     const t = text.trim();
     if (!t || loading) return;
     if (!apiKey.trim()) { setShowSetup(true); toast.error("Primero pon tu API key"); return; }
-    const next: Msg[] = [...messages, { role: "user", content: t }];
-    setMessages(next); setInput(""); setLoading(true);
+    const atts = pending;
+    const next: Msg[] = [...messages, { role: "user", content: t, attachments: atts.length ? atts : undefined }];
+    writeMessages(next); setInput(""); setPending([]); setLoading(true);
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey.trim()}`,
         ...(def.extraHeaders ?? {}),
       };
+      const wire = next.map((m, i) => {
+        const imgs = i === next.length - 1 ? (m.attachments ?? []).filter((a) => a.kind === "image") : [];
+        const files = i === next.length - 1 ? (m.attachments ?? []).filter((a) => a.kind !== "image") : [];
+        const extra = files.length ? `\n\nArchivos adjuntos:\n${files.map((f) => `- ${f.name}: ${f.url}`).join("\n")}` : "";
+        if (!imgs.length) return { role: m.role, content: m.content + extra };
+        return {
+          role: m.role,
+          content: [
+            { type: "text", text: m.content + extra },
+            ...imgs.map((a) => ({ type: "image_url", image_url: { url: a.url } })),
+          ],
+        };
+      });
       const res = await fetch(`${def.baseUrl}/chat/completions`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           model: (model || def.defaultModel).trim(),
-          messages: [{ role: "system", content: SYSTEM }, ...next],
+          messages: [{ role: "system", content: SYSTEM }, ...wire],
         }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error?.message ?? `Error ${res.status}`);
       const reply = data?.choices?.[0]?.message?.content ?? "(sin respuesta)";
-      setMessages([...next, { role: "assistant", content: reply }]);
+      writeMessages([...next, { role: "assistant", content: reply }]);
     } catch (e: any) {
       toast.error(e.message ?? "Error de IA");
-      setMessages([...next, { role: "assistant", content: `⚠️ ${e.message ?? "Error"}` }]);
+      writeMessages([...next, { role: "assistant", content: `⚠️ ${e.message ?? "Error"}` }]);
     } finally { setLoading(false); }
   };
 
@@ -131,11 +179,12 @@ const MagaiAssistant = () => {
           </h1>
           <p className="text-[11px] text-muted-foreground truncate">{def.label} · {model || def.defaultModel}</p>
         </div>
-        {messages.length > 0 && (
-          <button onClick={() => setMessages([])} title="Limpiar" className="p-2 rounded-xl hover:bg-muted text-muted-foreground">
-            <Trash2 size={16} />
-          </button>
-        )}
+        <button onClick={() => setShowHistory(true)} title="Historial" className="p-2 rounded-xl hover:bg-muted text-muted-foreground">
+          <History size={16} />
+        </button>
+        <button onClick={newChat} title="Nuevo chat" className="p-2 rounded-xl hover:bg-muted text-muted-foreground">
+          <Plus size={16} />
+        </button>
         <button onClick={() => setShowSetup((v) => !v)} className="p-2 rounded-xl hover:bg-muted text-muted-foreground">
           <Settings2 size={16} />
         </button>
@@ -209,6 +258,18 @@ const MagaiAssistant = () => {
             <div className={`max-w-[85%] sm:max-w-[80%] px-3 py-2 rounded-2xl text-sm ${
               m.role === "user" ? "magma-gradient text-primary-foreground rounded-br-md" : "glass-panel-strong text-foreground rounded-bl-md"
             }`}>
+              {!!m.attachments?.length && (
+                <div className="flex flex-wrap gap-2 mb-1.5">
+                  {m.attachments.map((a) => a.kind === "image" ? (
+                    <img key={a.url} src={a.url} alt={a.name} loading="lazy" className="w-24 h-24 rounded-xl object-cover border border-border/40" />
+                  ) : (
+                    <a key={a.url} href={a.url} target="_blank" rel="noreferrer"
+                      className="text-[11px] px-2 py-1.5 rounded-lg bg-background/30 underline max-w-[160px] truncate">
+                      {a.kind === "video" ? "🎬" : a.kind === "audio" ? "🎵" : "📄"} {a.name}
+                    </a>
+                  ))}
+                </div>
+              )}
               <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 break-words">
                 <ReactMarkdown>{m.content}</ReactMarkdown>
               </div>
@@ -236,7 +297,27 @@ const MagaiAssistant = () => {
       </main>
 
       <footer className="relative z-10 p-3 border-t border-border glass-panel pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="max-w-2xl mx-auto flex gap-2">
+        <div className="max-w-2xl mx-auto">
+          {pending.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {pending.map((a) => (
+                <div key={a.url} className="relative">
+                  {a.kind === "image"
+                    ? <img src={a.url} alt={a.name} className="w-14 h-14 rounded-lg object-cover border border-border" />
+                    : <div className="h-14 px-2 flex items-center rounded-lg glass-panel-strong text-[10px] max-w-[120px] truncate">{a.name}</div>}
+                  <button onClick={() => setPending((p) => p.filter((x) => x.url !== a.url))}
+                    className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-destructive text-destructive-foreground">
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+          <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowAttach(true)} title="Adjuntar"
+            className="px-3 rounded-xl hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+            <Paperclip size={18} />
+          </motion.button>
           <input value={input} onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && send(input)}
             placeholder="Escribe tu pregunta…"
@@ -245,8 +326,45 @@ const MagaiAssistant = () => {
             className="px-4 rounded-xl magma-gradient text-primary-foreground disabled:opacity-50 magma-glow-sm">
             <Send size={18} />
           </motion.button>
+          </div>
         </div>
       </footer>
+
+      <AttachmentPicker open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
+        onSend={(_text, url, kind, name) => setPending((p) => [...p, { url, kind, name }])} />
+
+      <AnimatePresence>
+        {showHistory && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] bg-background/70 backdrop-blur-md flex" onClick={() => setShowHistory(false)}>
+            <motion.aside initial={{ x: -340 }} animate={{ x: 0 }} exit={{ x: -340 }}
+              transition={{ type: "spring", stiffness: 280, damping: 28 }} onClick={(e) => e.stopPropagation()}
+              className="w-[300px] max-w-[85vw] h-full bg-card border-r border-border flex flex-col">
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h2 className="text-sm font-bold magma-gradient-text">Historial</h2>
+                <button onClick={() => setShowHistory(false)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><X size={16} /></button>
+              </div>
+              <button onClick={newChat} className="m-3 py-2.5 rounded-xl magma-gradient text-primary-foreground text-xs font-semibold flex items-center justify-center gap-2">
+                <Plus size={14} /> Nuevo chat
+              </button>
+              <div className="flex-1 overflow-y-auto scrollbar-magma px-2 pb-3">
+                {convs.length === 0 && <p className="text-center text-xs text-muted-foreground p-6">Todavía no hay conversaciones guardadas.</p>}
+                {convs.map((c) => (
+                  <div key={c.id} className={`group flex items-center gap-2 p-2.5 rounded-xl mb-1 ${c.id === activeId ? "bg-primary/15" : "hover:bg-muted"}`}>
+                    <button onClick={() => { setActiveId(c.id); localStorage.setItem(LS.active, c.id); setShowHistory(false); }}
+                      className="flex-1 flex items-center gap-2 text-left min-w-0">
+                      <MessageSquare size={14} className="text-primary shrink-0" />
+                      <span className="text-xs text-foreground truncate">{c.title}</span>
+                    </button>
+                    <button onClick={() => persist(convs.filter((x) => x.id !== c.id), c.id === activeId ? "" : activeId)}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"><Trash2 size={13} /></button>
+                  </div>
+                ))}
+              </div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
