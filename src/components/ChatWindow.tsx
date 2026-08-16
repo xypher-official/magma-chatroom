@@ -105,6 +105,7 @@ const ChatWindow = ({
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showAttach, setShowAttach] = useState(false);
   const [showLoc, setShowLoc] = useState(false);
   const [showCallOpts, setShowCallOpts] = useState(false);
   const [showSched, setShowSched] = useState(false);
@@ -403,6 +404,11 @@ const ChatWindow = ({
             </motion.button>
             <VoiceRecorder myUserId={myUserId}
               onSent={(url, type, dur) => onSendMessage(`🎙️ ${dur}s`, url, type)} />
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowAttach(true)} title="Adjuntar"
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+              <Paperclip size={20} />
+            </motion.button>
             <input
               type="text" value={input}
               onChange={(e) => { setInput(e.target.value); sendTyping(); }}
@@ -466,6 +472,8 @@ const ChatWindow = ({
       <LiveLocationMap open={showMap} onClose={() => setShowMap(false)} myUserId={myUserId}
         conversationId={messages[0]?.conversation_id} contactName={contactName}
         mySharing={loc.sharing} onStopMine={() => { loc.stop(); setShowMap(false); }} />
+      <AttachmentPicker open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
+        onSend={(text, url, kind) => onSendMessage(text, url, kind)} />
     </div>
   );
 };

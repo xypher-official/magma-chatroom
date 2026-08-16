@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus, Maximize2 } from "lucide-react";
+import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus, Maximize2, Paperclip, FileText } from "lucide-react";
+import AttachmentPicker from "./AttachmentPicker";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
@@ -48,6 +49,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showAttach, setShowAttach] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -263,6 +265,15 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
                     <img src={msg.media_url!} alt="" className="rounded-xl mb-1 max-h-72 w-full object-cover" loading="lazy" />
                   )}
                   {hasAudio && <VoiceMessageBubble url={msg.media_url!} isOwn={isOwn} />}
+                  {!isDeleted && msg.media_url && msg.media_type?.startsWith("video") && (
+                    <video src={msg.media_url} controls className="rounded-xl mb-1 max-h-72 w-full" />
+                  )}
+                  {!isDeleted && msg.media_url && msg.media_type === "file" && (
+                    <a href={msg.media_url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-2 mb-1 px-2 py-2 rounded-xl bg-background/25 text-xs underline">
+                      <FileText size={14} /> Abrir archivo
+                    </a>
+                  )}
                   {isEditing ? (
                     <div className="flex gap-1 items-center min-w-[180px]">
                       <input autoFocus value={editingText} onChange={(e) => setEditingText(e.target.value)}
@@ -330,6 +341,11 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
             </motion.button>
             <VoiceRecorder myUserId={myUserId}
               onSent={(url, type, dur) => send(url, type, `🎙️ ${dur}s`)} />
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => setShowAttach(true)} title="Adjuntar"
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+              <Paperclip size={20} />
+            </motion.button>
             <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
               onInput={sendTyping}
               placeholder={t("chat.placeholder")}
