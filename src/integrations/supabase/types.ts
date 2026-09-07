@@ -666,6 +666,30 @@ export type Database = {
         }
         Relationships: []
       }
+      magai_usage: {
+        Row: {
+          credits: number
+          day: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          credits?: number
+          day?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          credits?: number
+          day?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -1434,6 +1458,8 @@ export type Database = {
         Returns: boolean
       }
       is_user_muted: { Args: { _user: string }; Returns: boolean }
+      magai_consume: { Args: { _cost: number }; Returns: number }
+      magai_used_today: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "user"
