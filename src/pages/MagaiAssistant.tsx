@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Bot, KeyRound, Send, Sparkles, User, Eye, EyeOff, Trash2, Settings2, Check, Paperclip, X, History, Plus, MessageSquare } from "lucide-react";
+import {
+  ArrowLeft, Bot, KeyRound, Send, Sparkles, User, Eye, EyeOff, Trash2, Settings2, Check,
+  Paperclip, X, History, Plus, MessageSquare, RefreshCw, Loader2, Search, Flame, Zap,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -12,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 interface Attachment { url: string; kind: SentKind; name: string }
 interface Msg { role: "user" | "assistant"; content: string; attachments?: Attachment[] }
 interface Conv { id: string; title: string; messages: Msg[]; updatedAt: number }
+type Tier = "free" | "limited" | "paid";
+interface ModelInfo { id: string; name: string; tier: Tier; context: number | null; price: string }
 
 interface ProviderDef {
   key: string; label: string; baseUrl: string; defaultModel: string; hint: string; extraHeaders?: Record<string, string>;
@@ -29,16 +34,31 @@ const PROVIDERS: ProviderDef[] = [
   { key: "cerebras", label: "Cerebras", baseUrl: "https://api.cerebras.ai/v1", defaultModel: "llama3.3-70b", hint: "cloud.cerebras.ai" },
 ];
 
-const SYSTEM = `Eres MAGAI ASSISTANT, el asistente oficial de "Magma ChatRoom", una plataforma social volcánica estilo WhatsApp + Discord + YouTube.
-Conoces estas funciones y ayudas a los usuarios a usarlas, paso a paso, con un tono cálido y profesional:
-- Chats privados (DM) con emojis, mensajes de voz, fotos, archivos, edición y borrado de mensajes, vaciar chat, bloquear contactos.
-- Llamadas de voz y video (WebRTC) con temporizador, avisos de conexión, llamadas programadas y enlaces de llamada personalizados.
-- Ubicación en tiempo real con mapa compartido por enlace.
-- Grupos y comunidades tipo Discord con canales, roles (owner/moderador/miembro) e invitaciones.
-- MSocialVideos: videos largos y shorts, reproductor personalizado, playlists, likes, comentarios, embeds y estrenos.
-- ChatRoom Support: canal oficial de solo lectura, con tutoriales y reglas.
-- Ajustes: idioma con traducción automática de todo el sitio, teclado inteligente, notificaciones, PWA en iPhone/Android.
-Reglas: responde en el idioma del usuario, usa listas y pasos cortos, y si algo no existe en Magma ChatRoom dilo con honestidad. Nunca pidas contraseñas.`;
+const TIER_STYLE: Record<Tier, string> = {
+  free: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  limited: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  paid: "bg-sky-500/15 text-sky-400 border-sky-500/30",
+};
+const TIER_LABEL: Record<Tier, string> = { free: "GRATIS", limited: "LIMITADO", paid: "PAGO" };
+
+const SYSTEM = `Eres MAGAI ASSISTANT, el asistente oficial y EXPERTO de "Magma ChatRoom", una plataforma social volcánica que combina WhatsApp + Discord + YouTube.
+
+Dominas cada función del sitio y das instrucciones exactas, paso a paso, con rutas y nombres de botones reales:
+- Chats privados: emojis, mensajes de voz (micrófono), fotos/archivos (clip 📎), editar y borrar mensajes (mantener pulsado o menú del mensaje), vaciar chat, bloquear contactos, indicador "está escribiendo", composer expandido para textos largos.
+- Llamadas: voz y video por WebRTC. El botón de llamada abre un menú con Llamada de voz, Videollamada, Programar llamada y Crear enlace personalizado (te lleva al Studio para mover botones, textos, colores). Hay temporizador tipo WhatsApp y aviso cuando alguien se conecta o se va.
+- Ubicación en tiempo real: se comparte por enlace y abre un mapa con tu punto y el de la otra persona actualizándose.
+- Grupos y comunidades tipo Discord: canales (#general por defecto), roles owner/moderador/miembro, invitaciones, gestión del grupo.
+- MSocialVideos (/social/videos): videos largos y shorts, buscador de videos y canales, reproductor propio con ajustes (velocidad 0.25x–3x, brillo, bucle, PiP, atajos), página del video en /video/watch/ID con like, dislike, seguir, playlists, compartir y código embed, estrenos y publicación programada.
+- ChatRoom Support: canal oficial con reglas, términos y tutoriales para cuentas nuevas.
+- Ajustes: idioma con traducción automática de todo el sitio, teclado inteligente, avisos/notificaciones, instalación como app (Android APK, iPhone "Añadir a pantalla de inicio"), verificación por email.
+- Panel admin (solo administradores): anuncios globales, banner con enlace, secciones/páginas con HTML, modos público/privado/mantenimiento, motor de IA multi-proveedor.
+
+Reglas de respuesta:
+1. Responde SIEMPRE en el idioma del usuario.
+2. Sé directo: primero la respuesta, luego pasos numerados cortos.
+3. Usa negritas para botones y rutas. Nada de relleno ni disculpas largas.
+4. Si algo no existe en Magma ChatRoom, dilo con honestidad y ofrece la alternativa más cercana.
+5. Nunca pidas contraseñas ni claves.`;
 
 const LS = {
   provider: "magai.provider",
@@ -55,6 +75,8 @@ const SUGGESTIONS = [
   "¿Cómo activo las notificaciones en iPhone?",
 ];
 
+const DAILY_LIMIT = 10;
+
 const MagaiAssistant = () => {
   const navigate = useNavigate();
   const [booting, setBooting] = useState(true);
@@ -65,6 +87,7 @@ const MagaiAssistant = () => {
   const [showSetup, setShowSetup] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState("");
   const [convs, setConvs] = useState<Conv[]>(() => {
     try { return JSON.parse(localStorage.getItem(LS.convs) ?? "[]") as Conv[]; } catch { return []; }
   });
@@ -73,11 +96,17 @@ const MagaiAssistant = () => {
   const [showAttach, setShowAttach] = useState(false);
   const [pending, setPending] = useState<Attachment[]>([]);
   const [myUserId, setMyUserId] = useState("guest");
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [tierFilter, setTierFilter] = useState<Tier | "all">("all");
+  const [modelQuery, setModelQuery] = useState("");
+  const [used, setUsed] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   const def = PROVIDERS.find((p) => p.key === provider)!;
   const active = convs.find((c) => c.id === activeId);
   const messages = active?.messages ?? [];
+  const left = Math.max(DAILY_LIMIT - used, 0);
 
   const persist = useCallback((next: Conv[], id?: string) => {
     setConvs(next);
@@ -94,20 +123,28 @@ const MagaiAssistant = () => {
 
   const newChat = () => { persist(convs, ""); setShowHistory(false); setPending([]); };
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => { if (data.user) setMyUserId(data.user.id); });
+  const refreshUsage = useCallback(async () => {
+    const { data } = await supabase.rpc("magai_used_today");
+    if (typeof data === "number") setUsed(data);
   }, []);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) { setMyUserId(data.user.id); refreshUsage(); }
+    });
+  }, [refreshUsage]);
 
   useEffect(() => {
     const k = localStorage.getItem(LS.key(provider)) ?? "";
     setApiKey(k);
     setModel(localStorage.getItem(LS.model(provider)) || def.defaultModel);
     localStorage.setItem(LS.provider, provider);
+    setModels([]);
     setShowSetup(!k);
   }, [provider]);
 
   useEffect(() => { const t = setTimeout(() => setBooting(false), 900); return () => clearTimeout(t); }, []);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading, streaming]);
 
   const saveSetup = () => {
     if (!apiKey.trim()) { toast.error("Pon tu API key"); return; }
@@ -117,13 +154,48 @@ const MagaiAssistant = () => {
     toast.success("🔥 MAGAI listo");
   };
 
+  const loadModels = async () => {
+    if (!apiKey.trim()) { toast.error("Pega tu API key primero"); return; }
+    localStorage.setItem(LS.key(provider), apiKey.trim());
+    setLoadingModels(true);
+    const { data, error } = await supabase.functions.invoke("ai-models", {
+      body: { provider, api_key: apiKey.trim() },
+    });
+    setLoadingModels(false);
+    if (error || data?.error) { toast.error(data?.error ?? error?.message ?? "No se pudieron cargar los modelos"); return; }
+    setModels((data.models ?? []) as ModelInfo[]);
+    toast.success(`${data.count} modelos disponibles`);
+  };
+
+  const visibleModels = useMemo(() => {
+    const q = modelQuery.trim().toLowerCase();
+    return models.filter((m) =>
+      (tierFilter === "all" || m.tier === tierFilter) &&
+      (!q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+    ).slice(0, 150);
+  }, [models, tierFilter, modelQuery]);
+
+  const costOf = (text: string, atts: Attachment[], history: Msg[]) =>
+    (text.length > 400 || atts.length > 0 || history.length > 8) ? 3 : 1;
+
   const send = async (text: string) => {
     const t = text.trim();
     if (!t || loading) return;
     if (!apiKey.trim()) { setShowSetup(true); toast.error("Primero pon tu API key"); return; }
+
     const atts = pending;
+    const cost = costOf(t, atts, messages);
+    const { data: spent, error: quotaErr } = await supabase.rpc("magai_consume", { _cost: cost });
+    if (quotaErr) { toast.error("Inicia sesión para usar MAGAI"); return; }
+    if (spent === -1) {
+      toast.error(`Límite diario alcanzado (${DAILY_LIMIT} créditos). Se recarga mañana 🌋`);
+      setUsed(DAILY_LIMIT);
+      return;
+    }
+    if (typeof spent === "number") setUsed(spent);
+
     const next: Msg[] = [...messages, { role: "user", content: t, attachments: atts.length ? atts : undefined }];
-    writeMessages(next); setInput(""); setPending([]); setLoading(true);
+    writeMessages(next); setInput(""); setPending([]); setLoading(true); setStreaming("");
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -149,16 +221,41 @@ const MagaiAssistant = () => {
         body: JSON.stringify({
           model: (model || def.defaultModel).trim(),
           messages: [{ role: "system", content: SYSTEM }, ...wire],
+          stream: true,
         }),
       });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error?.message ?? `Error ${res.status}`);
-      const reply = data?.choices?.[0]?.message?.content ?? "(sin respuesta)";
-      writeMessages([...next, { role: "assistant", content: reply }]);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error?.message ?? `Error ${res.status}`);
+      }
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("Respuesta vacía del proveedor");
+      const decoder = new TextDecoder();
+      let buf = "";
+      let full = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          const l = line.trim();
+          if (!l.startsWith("data:")) continue;
+          const payload = l.slice(5).trim();
+          if (payload === "[DONE]") continue;
+          try {
+            const chunk = JSON.parse(payload);
+            const delta = chunk?.choices?.[0]?.delta?.content ?? "";
+            if (delta) { full += delta; setStreaming(full); }
+          } catch { /* ignore partial chunk */ }
+        }
+      }
+      writeMessages([...next, { role: "assistant", content: full || "(sin respuesta)" }]);
     } catch (e: any) {
       toast.error(e.message ?? "Error de IA");
       writeMessages([...next, { role: "assistant", content: `⚠️ ${e.message ?? "Error"}` }]);
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setStreaming(""); }
   };
 
   if (booting) return <MagmaLoader label="MAGAI ASSISTANT" sub="Sincronizando el conocimiento de Magma ChatRoom…" />;
@@ -166,10 +263,10 @@ const MagaiAssistant = () => {
   return (
     <div className="min-h-[100dvh] bg-background relative overflow-hidden flex flex-col">
       <LavaParticles />
-      <header className="relative z-10 px-3 sm:px-5 py-3 flex items-center gap-3 border-b border-border glass-panel pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <button onClick={() => navigate("/")} className="p-2 rounded-xl hover:bg-muted text-muted-foreground">
+      <header className="relative z-10 px-3 sm:px-5 py-3 flex items-center gap-2 sm:gap-3 border-b border-border glass-panel pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigate("/")} className="p-2 rounded-xl hover:bg-muted text-muted-foreground">
           <ArrowLeft size={18} />
-        </button>
+        </motion.button>
         <motion.div animate={{ rotate: [0, 360] }} transition={{ duration: 10, repeat: Infinity, ease: "linear" }}>
           <Sparkles size={18} className="text-amber-400" />
         </motion.div>
@@ -179,6 +276,17 @@ const MagaiAssistant = () => {
           </h1>
           <p className="text-[11px] text-muted-foreground truncate">{def.label} · {model || def.defaultModel}</p>
         </div>
+        <motion.div
+          key={left}
+          initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 380, damping: 20 }}
+          title="Créditos restantes hoy"
+          className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-bold ${
+            left === 0 ? "border-destructive/40 bg-destructive/15 text-destructive" : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+          }`}
+        >
+          <Flame size={11} /> {left}/{DAILY_LIMIT}
+        </motion.div>
         <button onClick={() => setShowHistory(true)} title="Historial" className="p-2 rounded-xl hover:bg-muted text-muted-foreground">
           <History size={16} />
         </button>
@@ -194,6 +302,7 @@ const MagaiAssistant = () => {
         {showSetup && (
           <motion.section
             initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 220, damping: 26 }}
             className="relative z-10 overflow-hidden border-b border-border bg-gradient-to-r from-amber-500/10 to-red-500/10"
           >
             <div className="p-3 sm:p-5 max-w-2xl mx-auto space-y-3">
@@ -202,12 +311,12 @@ const MagaiAssistant = () => {
               </div>
               <div className="flex gap-2 overflow-x-auto scrollbar-magma pb-1 -mx-1 px-1">
                 {PROVIDERS.map((p) => (
-                  <button key={p.key} onClick={() => setProvider(p.key)}
+                  <motion.button whileTap={{ scale: 0.94 }} key={p.key} onClick={() => setProvider(p.key)}
                     className={`shrink-0 px-3 py-1.5 rounded-full text-xs border transition-colors ${
                       provider === p.key ? "magma-gradient text-primary-foreground border-transparent" : "border-border text-muted-foreground hover:bg-muted"
                     }`}>
                     {p.label}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
               <p className="text-[11px] text-muted-foreground">{def.hint}</p>
@@ -220,35 +329,80 @@ const MagaiAssistant = () => {
                     {reveal ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
+                <motion.button whileTap={{ scale: 0.95 }} onClick={loadModels} disabled={loadingModels}
+                  className="px-3 rounded-xl magma-gradient text-primary-foreground text-xs font-semibold flex items-center gap-2 disabled:opacity-50">
+                  {loadingModels ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Modelos
+                </motion.button>
               </div>
+
+              {models.length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative flex-1 min-w-[150px]">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <input value={modelQuery} onChange={(e) => setModelQuery(e.target.value)} placeholder="Buscar modelo…"
+                        className="w-full pl-8 pr-3 py-2 rounded-xl bg-input border border-border text-xs text-foreground outline-none" />
+                    </div>
+                    {(["all", "free", "limited", "paid"] as const).map((t) => (
+                      <button key={t} onClick={() => setTierFilter(t)}
+                        className={`px-2.5 py-1.5 rounded-full text-[11px] font-bold border transition-colors ${
+                          tierFilter === t
+                            ? t === "all" ? "border-primary bg-primary/15 text-primary" : TIER_STYLE[t as Tier]
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        }`}>
+                        {t === "all" ? "TODOS" : TIER_LABEL[t as Tier]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="max-h-56 overflow-y-auto scrollbar-magma space-y-1 pr-1">
+                    {visibleModels.map((m) => (
+                      <motion.button whileTap={{ scale: 0.99 }} key={m.id}
+                        onClick={() => { setModel(m.id); localStorage.setItem(LS.model(provider), m.id); toast.success(`Modelo: ${m.id}`); }}
+                        className={`w-full flex items-center gap-2 p-2 rounded-xl border text-left transition-colors ${
+                          model === m.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"
+                        }`}>
+                        <Zap size={12} className="text-amber-400 shrink-0" />
+                        <span className="flex-1 min-w-0 text-[11px] font-mono text-foreground truncate">{m.id}</span>
+                        <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded-full border font-bold ${TIER_STYLE[m.tier]}`}>{TIER_LABEL[m.tier]}</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
               <input value={model} onChange={(e) => setModel(e.target.value)} placeholder={def.defaultModel}
-                className="w-full px-3 py-2.5 rounded-xl bg-input border border-border text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/40" />
-              <button onClick={saveSetup} className="w-full py-2.5 rounded-xl magma-gradient text-primary-foreground text-sm font-semibold magma-glow-sm flex items-center justify-center gap-2">
+                className="w-full px-3 py-2.5 rounded-xl bg-input border border-border text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/40 font-mono" />
+              <motion.button whileTap={{ scale: 0.97 }} onClick={saveSetup} className="w-full py-2.5 rounded-xl magma-gradient text-primary-foreground text-sm font-semibold magma-glow-sm flex items-center justify-center gap-2">
                 <Check size={15} /> Guardar y usar
-              </button>
+              </motion.button>
+              <p className="text-[10px] text-muted-foreground text-center">
+                Máximo {DAILY_LIMIT} créditos al día · una pregunta = 1 · pregunta compleja (muy larga o con archivos) = 3 · se recarga cada día.
+              </p>
             </div>
           </motion.section>
         )}
       </AnimatePresence>
 
       <main className="relative z-10 flex-1 overflow-y-auto scrollbar-magma p-3 sm:p-5 space-y-3 max-w-2xl w-full mx-auto ember-bg">
-        {messages.length === 0 && (
-          <div className="py-8 text-center">
-            <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 3, repeat: Infinity }} className="text-4xl mb-3">🌋</motion.div>
+        {messages.length === 0 && !loading && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="py-8 text-center">
+            <motion.div animate={{ y: [0, -6, 0], rotate: [0, 4, -4, 0] }} transition={{ duration: 3.5, repeat: Infinity }} className="text-4xl mb-3">🌋</motion.div>
             <p className="text-sm text-foreground font-semibold mb-1">Pregúntame lo que sea sobre Magma ChatRoom</p>
             <p className="text-xs text-muted-foreground mb-4">Llamadas, grupos, videos, ubicación, ajustes y más.</p>
             <div className="flex flex-wrap gap-2 justify-center">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} onClick={() => send(s)}
+              {SUGGESTIONS.map((s, i) => (
+                <motion.button key={s} onClick={() => send(s)} whileHover={{ y: -2 }} whileTap={{ scale: 0.96 }}
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 * i }}
                   className="text-xs px-3 py-2 rounded-full bg-muted hover:bg-primary/15 hover:text-primary text-muted-foreground transition-colors max-w-full">
                   {s}
-                </button>
+                </motion.button>
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
         {messages.map((m, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          <motion.div key={i} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 320, damping: 26 }}
             className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "assistant" && (
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
@@ -281,51 +435,70 @@ const MagaiAssistant = () => {
             )}
           </motion.div>
         ))}
+
         {loading && (
-          <div className="flex gap-2 items-center text-xs text-muted-foreground">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2 justify-start">
+            <motion.div animate={{ scale: [1, 1.12, 1] }} transition={{ duration: 1.4, repeat: Infinity }}
+              className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
               <Bot size={14} className="text-white" />
+            </motion.div>
+            <div className="max-w-[85%] sm:max-w-[80%] px-3 py-2 rounded-2xl rounded-bl-md glass-panel-strong text-sm text-foreground">
+              {streaming ? (
+                <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 break-words">
+                  <ReactMarkdown>{streaming}</ReactMarkdown>
+                  <motion.span animate={{ opacity: [1, 0.15, 1] }} transition={{ duration: 0.9, repeat: Infinity }}
+                    className="inline-block w-1.5 h-4 align-middle ml-0.5 rounded-sm bg-amber-400" />
+                </div>
+              ) : (
+                <span className="flex gap-1 text-muted-foreground">
+                  {[0, 0.2, 0.4].map((d) => (
+                    <motion.span key={d} animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} transition={{ duration: 1, repeat: Infinity, delay: d }}>•</motion.span>
+                  ))}
+                </span>
+              )}
             </div>
-            <span className="flex gap-1">
-              {[0, 0.2, 0.4].map((d) => (
-                <motion.span key={d} animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: d }}>•</motion.span>
-              ))}
-            </span>
-          </div>
+          </motion.div>
         )}
         <div ref={endRef} />
       </main>
 
       <footer className="relative z-10 p-3 border-t border-border glass-panel pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="max-w-2xl mx-auto">
-          {pending.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
-              {pending.map((a) => (
-                <div key={a.url} className="relative">
-                  {a.kind === "image"
-                    ? <img src={a.url} alt={a.name} className="w-14 h-14 rounded-lg object-cover border border-border" />
-                    : <div className="h-14 px-2 flex items-center rounded-lg glass-panel-strong text-[10px] max-w-[120px] truncate">{a.name}</div>}
-                  <button onClick={() => setPending((p) => p.filter((x) => x.url !== a.url))}
-                    className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-destructive text-destructive-foreground">
-                    <X size={11} />
-                  </button>
-                </div>
-              ))}
-            </div>
+          <AnimatePresence>
+            {pending.length > 0 && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                className="flex flex-wrap gap-2 mb-2 overflow-hidden">
+                {pending.map((a) => (
+                  <motion.div key={a.url} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative">
+                    {a.kind === "image"
+                      ? <img src={a.url} alt={a.name} className="w-14 h-14 rounded-lg object-cover border border-border" />
+                      : <div className="h-14 px-2 flex items-center rounded-lg glass-panel-strong text-[10px] max-w-[120px] truncate">{a.name}</div>}
+                    <button onClick={() => setPending((p) => p.filter((x) => x.url !== a.url))}
+                      className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-destructive text-destructive-foreground">
+                      <X size={11} />
+                    </button>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {left === 0 && (
+            <p className="mb-2 text-[11px] text-center text-destructive">Ya usaste tus {DAILY_LIMIT} créditos de hoy. Vuelve mañana 🌋</p>
           )}
           <div className="flex gap-2">
-          <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowAttach(true)} title="Adjuntar"
-            className="px-3 rounded-xl hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-            <Paperclip size={18} />
-          </motion.button>
-          <input value={input} onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send(input)}
-            placeholder="Escribe tu pregunta…"
-            className="flex-1 min-w-0 px-4 py-3 rounded-xl bg-input border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/40" />
-          <motion.button whileTap={{ scale: 0.95 }} onClick={() => send(input)} disabled={loading || !input.trim()}
-            className="px-4 rounded-xl magma-gradient text-primary-foreground disabled:opacity-50 magma-glow-sm">
-            <Send size={18} />
-          </motion.button>
+            <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowAttach(true)} title="Adjuntar"
+              className="px-3 rounded-xl hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+              <Paperclip size={18} />
+            </motion.button>
+            <input value={input} onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && send(input)}
+              disabled={left === 0}
+              placeholder={left === 0 ? "Sin créditos hoy" : "Escribe tu pregunta…"}
+              className="flex-1 min-w-0 px-4 py-3 rounded-xl bg-input border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50" />
+            <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => send(input)} disabled={loading || !input.trim() || left === 0}
+              className="px-4 rounded-xl magma-gradient text-primary-foreground disabled:opacity-50 magma-glow-sm">
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+            </motion.button>
           </div>
         </div>
       </footer>
@@ -349,8 +522,9 @@ const MagaiAssistant = () => {
               </button>
               <div className="flex-1 overflow-y-auto scrollbar-magma px-2 pb-3">
                 {convs.length === 0 && <p className="text-center text-xs text-muted-foreground p-6">Todavía no hay conversaciones guardadas.</p>}
-                {convs.map((c) => (
-                  <div key={c.id} className={`group flex items-center gap-2 p-2.5 rounded-xl mb-1 ${c.id === activeId ? "bg-primary/15" : "hover:bg-muted"}`}>
+                {convs.map((c, i) => (
+                  <motion.div key={c.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.03 * i }}
+                    className={`group flex items-center gap-2 p-2.5 rounded-xl mb-1 ${c.id === activeId ? "bg-primary/15" : "hover:bg-muted"}`}>
                     <button onClick={() => { setActiveId(c.id); localStorage.setItem(LS.active, c.id); setShowHistory(false); }}
                       className="flex-1 flex items-center gap-2 text-left min-w-0">
                       <MessageSquare size={14} className="text-primary shrink-0" />
@@ -358,7 +532,7 @@ const MagaiAssistant = () => {
                     </button>
                     <button onClick={() => persist(convs.filter((x) => x.id !== c.id), c.id === activeId ? "" : activeId)}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"><Trash2 size={13} /></button>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </motion.aside>
