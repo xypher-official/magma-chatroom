@@ -117,8 +117,6 @@ Deno.serve(async (req) => {
     const { data: userData } = await userClient.auth.getUser();
     const me = userData.user;
     if (!me) return json({ error: "unauthorized" }, 401);
-    const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", me.id).eq("role", "admin").maybeSingle();
-    if (!roleRow) return json({ error: "admin only" }, 403);
 
     const body = await req.json().catch(() => ({}));
     const provider = String(body.provider ?? "").trim();
@@ -127,10 +125,14 @@ Deno.serve(async (req) => {
     let apiKey = String(body.api_key ?? "");
     let baseUrl = String(body.base_url ?? "");
     if (!apiKey) {
+      // Only admins may read the stored provider keys.
+      const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", me.id).eq("role", "admin").maybeSingle();
+      if (!roleRow) return json({ error: "Pon tu propia API key" }, 403);
       const { data: row } = await admin.from("ai_providers").select("api_key, base_url").eq("provider", provider).maybeSingle();
       apiKey = row?.api_key ?? "";
       baseUrl = baseUrl || (row?.base_url ?? "");
     }
+
 
     const models = await fetchModels(provider, apiKey, baseUrl);
     models.sort((a: any, b: any) => {
