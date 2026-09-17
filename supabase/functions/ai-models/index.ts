@@ -83,6 +83,7 @@ async function fetchModels(provider: string, apiKey: string, baseUrl: string) {
     together: "https://api.together.xyz/v1",
     xai: "https://api.x.ai/v1",
     cerebras: "https://api.cerebras.ai/v1",
+    huggingface: "https://router.huggingface.co/v1",
   };
   const base = (baseUrl || bases[provider] || "").replace(/\/+$/, "");
   if (!base) throw new Error(`Proveedor desconocido: ${provider}`);
