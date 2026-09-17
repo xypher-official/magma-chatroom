@@ -76,7 +76,38 @@ const SUGGESTIONS = [
   "¿Cómo activo las notificaciones en iPhone?",
 ];
 
-
+/** Reveals markdown text letter-by-letter, then calls onDone. */
+const TypewriterMarkdown = ({ text, onDone }: { text: string; onDone: () => void }) => {
+  const [n, setN] = useState(0);
+  const doneRef = useRef(false);
+  useEffect(() => {
+    setN(0);
+    doneRef.current = false;
+    const step = Math.max(2, Math.round(text.length / 260));
+    const iv = window.setInterval(() => {
+      setN((v) => {
+        const next = v + step;
+        if (next >= text.length) {
+          window.clearInterval(iv);
+          if (!doneRef.current) { doneRef.current = true; setTimeout(onDone, 250); }
+          return text.length;
+        }
+        return next;
+      });
+    }, 14);
+    return () => window.clearInterval(iv);
+  }, [text]);
+  const done = n >= text.length;
+  return (
+    <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 break-words">
+      <ReactMarkdown>{text.slice(0, n)}</ReactMarkdown>
+      {!done && (
+        <motion.span animate={{ opacity: [1, 0.15, 1] }} transition={{ duration: 0.8, repeat: Infinity }}
+          className="inline-block w-1.5 h-4 align-middle ml-0.5 rounded-sm bg-amber-400" />
+      )}
+    </div>
+  );
+};
 
 const MagaiAssistant = () => {
   const navigate = useNavigate();
@@ -103,6 +134,7 @@ const MagaiAssistant = () => {
   const [modelQuery, setModelQuery] = useState("");
   const [used, setUsed] = useState(0);
   const [blockedUntil, setBlockedUntil] = useState<Date | null>(null);
+  const [typingKey, setTypingKey] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   const def = PROVIDERS.find((p) => p.key === provider)!;
@@ -257,7 +289,9 @@ const MagaiAssistant = () => {
           } catch { /* ignore partial chunk */ }
         }
       }
-      writeMessages([...next, { role: "assistant", content: full || "(sin respuesta)" }]);
+      const finalContent = full || "(sin respuesta)";
+      writeMessages([...next, { role: "assistant", content: finalContent }]);
+      setTypingKey(`${Date.now()}-${next.length}`);
     } catch (e: any) {
       toast.error(e.message ?? "Error de IA");
       writeMessages([...next, { role: "assistant", content: `⚠️ ${e.message ?? "Error"}` }]);
@@ -406,7 +440,9 @@ const MagaiAssistant = () => {
             </div>
           </motion.div>
         )}
-        {messages.map((m, i) => (
+        {messages.map((m, i) => {
+          const isTyping = typingKey !== null && m.role === "assistant" && i === messages.length - 1;
+          return (
           <motion.div key={i} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 320, damping: 26 }}
             className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -430,9 +466,13 @@ const MagaiAssistant = () => {
                   ))}
                 </div>
               )}
-              <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 break-words">
-                <ReactMarkdown>{m.content}</ReactMarkdown>
-              </div>
+              {isTyping ? (
+                <TypewriterMarkdown text={m.content} onDone={() => setTypingKey(null)} />
+              ) : (
+                <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 break-words">
+                  <ReactMarkdown>{m.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
             {m.role === "user" && (
               <div className="w-7 h-7 rounded-full magma-gradient flex items-center justify-center shrink-0">
@@ -440,7 +480,8 @@ const MagaiAssistant = () => {
               </div>
             )}
           </motion.div>
-        ))}
+          );
+        })}
 
         {loading && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2 justify-start">
@@ -456,10 +497,15 @@ const MagaiAssistant = () => {
                     className="inline-block w-1.5 h-4 align-middle ml-0.5 rounded-sm bg-amber-400" />
                 </div>
               ) : (
-                <span className="flex gap-1 text-muted-foreground">
-                  {[0, 0.2, 0.4].map((d) => (
-                    <motion.span key={d} animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} transition={{ duration: 1, repeat: Infinity, delay: d }}>•</motion.span>
-                  ))}
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <span className="text-xs font-semibold bg-gradient-to-r from-amber-300 via-orange-400 to-amber-300 bg-clip-text text-transparent bg-[length:200%_100%] animate-[gradient-x_1.6s_linear_infinite]">
+                    Thinking…
+                  </span>
+                  <span className="flex gap-1">
+                    {[0, 0.2, 0.4].map((d) => (
+                      <motion.span key={d} animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} transition={{ duration: 1, repeat: Infinity, delay: d }}>•</motion.span>
+                    ))}
+                  </span>
                 </span>
               )}
             </div>
