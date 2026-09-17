@@ -76,7 +76,7 @@ const SUGGESTIONS = [
   "¿Cómo activo las notificaciones en iPhone?",
 ];
 
-const DAILY_LIMIT = 10;
+
 
 const MagaiAssistant = () => {
   const navigate = useNavigate();
@@ -102,12 +102,13 @@ const MagaiAssistant = () => {
   const [tierFilter, setTierFilter] = useState<Tier | "all">("all");
   const [modelQuery, setModelQuery] = useState("");
   const [used, setUsed] = useState(0);
+  const [blockedUntil, setBlockedUntil] = useState<Date | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   const def = PROVIDERS.find((p) => p.key === provider)!;
   const active = convs.find((c) => c.id === activeId);
   const messages = active?.messages ?? [];
-  const left = Math.max(DAILY_LIMIT - used, 0);
+  const isBlocked = !!blockedUntil && blockedUntil.getTime() > Date.now();
 
   const persist = useCallback((next: Conv[], id?: string) => {
     setConvs(next);
@@ -125,8 +126,12 @@ const MagaiAssistant = () => {
   const newChat = () => { persist(convs, ""); setShowHistory(false); setPending([]); };
 
   const refreshUsage = useCallback(async () => {
-    const { data } = await supabase.rpc("magai_used_today");
+    const [{ data }, { data: until }] = await Promise.all([
+      supabase.rpc("magai_used_today"),
+      supabase.rpc("magai_blocked_until"),
+    ]);
     if (typeof data === "number") setUsed(data);
+    setBlockedUntil(until ? new Date(until as string) : null);
   }, []);
 
   useEffect(() => {
@@ -189,8 +194,8 @@ const MagaiAssistant = () => {
     const { data: spent, error: quotaErr } = await supabase.rpc("magai_consume", { _cost: cost });
     if (quotaErr) { toast.error("Inicia sesión para usar MAGAI"); return; }
     if (spent === -1) {
-      toast.error(`Límite diario alcanzado (${DAILY_LIMIT} créditos). Se recarga mañana 🌋`);
-      setUsed(DAILY_LIMIT);
+      toast.error("Uso intensivo detectado. MAGAI se pausa 24 horas 🌋");
+      await refreshUsage();
       return;
     }
     if (typeof spent === "number") setUsed(spent);
@@ -278,15 +283,15 @@ const MagaiAssistant = () => {
           <p className="text-[11px] text-muted-foreground truncate">{def.label} · {model || def.defaultModel}</p>
         </div>
         <motion.div
-          key={left}
+          key={used}
           initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 380, damping: 20 }}
-          title="Créditos restantes hoy"
+          title={isBlocked ? "En pausa 24 horas por uso intensivo" : "Créditos ilimitados"}
           className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-bold ${
-            left === 0 ? "border-destructive/40 bg-destructive/15 text-destructive" : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+            isBlocked ? "border-destructive/40 bg-destructive/15 text-destructive" : "border-amber-500/30 bg-amber-500/10 text-amber-400"
           }`}
         >
-          <Flame size={11} /> {left}/{DAILY_LIMIT}
+          <Flame size={11} /> {isBlocked ? "En pausa 24h" : "∞"}
         </motion.div>
         <button onClick={() => setShowHistory(true)} title="Historial" className="p-2 rounded-xl hover:bg-muted text-muted-foreground">
           <History size={16} />
@@ -377,7 +382,7 @@ const MagaiAssistant = () => {
                 <Check size={15} /> Guardar y usar
               </motion.button>
               <p className="text-[10px] text-muted-foreground text-center">
-                Máximo {DAILY_LIMIT} créditos al día · una pregunta = 1 · pregunta compleja (muy larga o con archivos) = 3 · se recarga cada día.
+                Preguntas ilimitadas · si detectamos uso intensivo (muchísimas preguntas largas o con archivos en poco tiempo) MAGAI se pausa 24 horas.
               </p>
             </div>
           </motion.section>
@@ -483,8 +488,10 @@ const MagaiAssistant = () => {
               </motion.div>
             )}
           </AnimatePresence>
-          {left === 0 && (
-            <p className="mb-2 text-[11px] text-center text-destructive">Ya usaste tus {DAILY_LIMIT} créditos de hoy. Vuelve mañana 🌋</p>
+          {isBlocked && (
+            <p className="mb-2 text-[11px] text-center text-destructive">
+              Uso intensivo detectado. MAGAI vuelve el {blockedUntil?.toLocaleString()} 🌋
+            </p>
           )}
           <div className="flex gap-2">
             <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowAttach(true)} title="Adjuntar"
@@ -493,10 +500,10 @@ const MagaiAssistant = () => {
             </motion.button>
             <input value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send(input)}
-              disabled={left === 0}
-              placeholder={left === 0 ? "Sin créditos hoy" : "Escribe tu pregunta…"}
+              disabled={isBlocked}
+              placeholder={isBlocked ? "MAGAI en pausa 24 horas" : "Escribe tu pregunta…"}
               className="flex-1 min-w-0 px-4 py-3 rounded-xl bg-input border border-border text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/40 disabled:opacity-50" />
-            <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => send(input)} disabled={loading || !input.trim() || left === 0}
+            <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => send(input)} disabled={loading || !input.trim() || isBlocked}
               className="px-4 rounded-xl magma-gradient text-primary-foreground disabled:opacity-50 magma-glow-sm">
               {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
             </motion.button>

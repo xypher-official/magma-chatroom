@@ -666,8 +666,30 @@ export type Database = {
         }
         Relationships: []
       }
+      magai_events: {
+        Row: {
+          cost: number
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          cost?: number
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       magai_usage: {
         Row: {
+          blocked_until: string | null
           credits: number
           day: string
           id: string
@@ -675,6 +697,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          blocked_until?: string | null
           credits?: number
           day?: string
           id?: string
@@ -682,6 +705,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          blocked_until?: string | null
           credits?: number
           day?: string
           id?: string
@@ -1458,6 +1482,7 @@ export type Database = {
         Returns: boolean
       }
       is_user_muted: { Args: { _user: string }; Returns: boolean }
+      magai_blocked_until: { Args: never; Returns: string }
       magai_consume: { Args: { _cost: number }; Returns: number }
       magai_used_today: { Args: never; Returns: number }
     }
