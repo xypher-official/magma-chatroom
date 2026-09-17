@@ -289,7 +289,9 @@ const MagaiAssistant = () => {
           } catch { /* ignore partial chunk */ }
         }
       }
-      writeMessages([...next, { role: "assistant", content: full || "(sin respuesta)" }]);
+      const finalContent = full || "(sin respuesta)";
+      writeMessages([...next, { role: "assistant", content: finalContent }]);
+      setTypingKey(`${Date.now()}-${next.length}`);
     } catch (e: any) {
       toast.error(e.message ?? "Error de IA");
       writeMessages([...next, { role: "assistant", content: `⚠️ ${e.message ?? "Error"}` }]);
@@ -438,7 +440,10 @@ const MagaiAssistant = () => {
             </div>
           </motion.div>
         )}
-        {messages.map((m, i) => (
+        {messages.map((m, i) => {
+          const msgKey = `${m.role}-${i}-${m.content.length}`;
+          const isTyping = typingKey !== null && m.role === "assistant" && i === messages.length - 1;
+          return (
           <motion.div key={i} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 320, damping: 26 }}
             className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
