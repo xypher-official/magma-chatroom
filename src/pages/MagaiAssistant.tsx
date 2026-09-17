@@ -441,7 +441,6 @@ const MagaiAssistant = () => {
           </motion.div>
         )}
         {messages.map((m, i) => {
-          const msgKey = `${m.role}-${i}-${m.content.length}`;
           const isTyping = typingKey !== null && m.role === "assistant" && i === messages.length - 1;
           return (
           <motion.div key={i} initial={{ opacity: 0, y: 14, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -467,9 +466,13 @@ const MagaiAssistant = () => {
                   ))}
                 </div>
               )}
-              <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 break-words">
-                <ReactMarkdown>{m.content}</ReactMarkdown>
-              </div>
+              {isTyping ? (
+                <TypewriterMarkdown text={m.content} onDone={() => setTypingKey(null)} />
+              ) : (
+                <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 break-words">
+                  <ReactMarkdown>{m.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
             {m.role === "user" && (
               <div className="w-7 h-7 rounded-full magma-gradient flex items-center justify-center shrink-0">
@@ -477,7 +480,8 @@ const MagaiAssistant = () => {
               </div>
             )}
           </motion.div>
-        ))}
+          );
+        })}
 
         {loading && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2 justify-start">
@@ -493,10 +497,15 @@ const MagaiAssistant = () => {
                     className="inline-block w-1.5 h-4 align-middle ml-0.5 rounded-sm bg-amber-400" />
                 </div>
               ) : (
-                <span className="flex gap-1 text-muted-foreground">
-                  {[0, 0.2, 0.4].map((d) => (
-                    <motion.span key={d} animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} transition={{ duration: 1, repeat: Infinity, delay: d }}>•</motion.span>
-                  ))}
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <span className="text-xs font-semibold bg-gradient-to-r from-amber-300 via-orange-400 to-amber-300 bg-clip-text text-transparent bg-[length:200%_100%] animate-[gradient-x_1.6s_linear_infinite]">
+                    Thinking…
+                  </span>
+                  <span className="flex gap-1">
+                    {[0, 0.2, 0.4].map((d) => (
+                      <motion.span key={d} animate={{ opacity: [0.3, 1, 0.3], y: [0, -3, 0] }} transition={{ duration: 1, repeat: Infinity, delay: d }}>•</motion.span>
+                    ))}
+                  </span>
                 </span>
               )}
             </div>
