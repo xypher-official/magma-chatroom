@@ -26,6 +26,7 @@ const DEFAULT_TIER: Record<string, Tier> = {
   together: "paid",
   xai: "paid",
   cerebras: "limited",
+  huggingface: "limited",
 };
 
 async function fetchModels(provider: string, apiKey: string, baseUrl: string) {
