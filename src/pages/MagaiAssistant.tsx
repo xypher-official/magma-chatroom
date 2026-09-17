@@ -32,6 +32,7 @@ const PROVIDERS: ProviderDef[] = [
   { key: "together", label: "Together AI", baseUrl: "https://api.together.xyz/v1", defaultModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo", hint: "api.together.xyz" },
   { key: "xai", label: "xAI (Grok)", baseUrl: "https://api.x.ai/v1", defaultModel: "grok-2-latest", hint: "console.x.ai" },
   { key: "cerebras", label: "Cerebras", baseUrl: "https://api.cerebras.ai/v1", defaultModel: "llama3.3-70b", hint: "cloud.cerebras.ai" },
+  { key: "huggingface", label: "Hugging Face", baseUrl: "https://router.huggingface.co/v1", defaultModel: "meta-llama/Llama-3.1-8B-Instruct", hint: "huggingface.co/settings/tokens — miles de modelos abiertos" },
 ];
 
 const TIER_STYLE: Record<Tier, string> = {
