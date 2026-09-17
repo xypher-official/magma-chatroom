@@ -76,7 +76,38 @@ const SUGGESTIONS = [
   "¿Cómo activo las notificaciones en iPhone?",
 ];
 
-
+/** Reveals markdown text letter-by-letter, then calls onDone. */
+const TypewriterMarkdown = ({ text, onDone }: { text: string; onDone: () => void }) => {
+  const [n, setN] = useState(0);
+  const doneRef = useRef(false);
+  useEffect(() => {
+    setN(0);
+    doneRef.current = false;
+    const step = Math.max(2, Math.round(text.length / 260));
+    const iv = window.setInterval(() => {
+      setN((v) => {
+        const next = v + step;
+        if (next >= text.length) {
+          window.clearInterval(iv);
+          if (!doneRef.current) { doneRef.current = true; setTimeout(onDone, 250); }
+          return text.length;
+        }
+        return next;
+      });
+    }, 14);
+    return () => window.clearInterval(iv);
+  }, [text]);
+  const done = n >= text.length;
+  return (
+    <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 break-words">
+      <ReactMarkdown>{text.slice(0, n)}</ReactMarkdown>
+      {!done && (
+        <motion.span animate={{ opacity: [1, 0.15, 1] }} transition={{ duration: 0.8, repeat: Infinity }}
+          className="inline-block w-1.5 h-4 align-middle ml-0.5 rounded-sm bg-amber-400" />
+      )}
+    </div>
+  );
+};
 
 const MagaiAssistant = () => {
   const navigate = useNavigate();
@@ -103,6 +134,7 @@ const MagaiAssistant = () => {
   const [modelQuery, setModelQuery] = useState("");
   const [used, setUsed] = useState(0);
   const [blockedUntil, setBlockedUntil] = useState<Date | null>(null);
+  const [typingKey, setTypingKey] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   const def = PROVIDERS.find((p) => p.key === provider)!;
