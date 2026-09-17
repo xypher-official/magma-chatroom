@@ -24,6 +24,7 @@ const PROVIDERS: ProviderDef[] = [
   { key: "together", label: "Together AI", hint: "api.together.xyz" },
   { key: "xai", label: "xAI (Grok)", hint: "console.x.ai" },
   { key: "cerebras", label: "Cerebras", hint: "cloud.cerebras.ai — capa gratuita" },
+  { key: "huggingface", label: "Hugging Face", hint: "huggingface.co/settings/tokens — miles de modelos abiertos" },
 ];
 
 const TIER_STYLE: Record<Tier, string> = {
