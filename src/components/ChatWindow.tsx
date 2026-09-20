@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser, Maximize2, Paperclip, FileText } from "lucide-react";
+import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser, Maximize2, Paperclip, FileText, Plus } from "lucide-react";
 import ExpandedComposer from "./ExpandedComposer";
 import AttachmentPicker from "./AttachmentPicker";
 import Badges from "./Badges";
@@ -112,6 +112,7 @@ const ChatWindow = ({
   const [showMap, setShowMap] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showExpanded, setShowExpanded] = useState(false);
+  const [showTools, setShowTools] = useState(false);
   const loc = useLocationShare(myUserId);
   const { iBlocked, blockedMe, block, unblock } = useBlocks(myUserId);
   const kb = useKeyboardPref(myUserId);
@@ -383,53 +384,62 @@ const ChatWindow = ({
             onUnblock={() => { unblock(contactUserId); toast.success("Usuario desbloqueado"); }}
           />
         ) : (
-          <div className="flex items-center gap-2 relative">
+          <div className="relative flex flex-col gap-2 min-w-0">
             <EmojiPickerPopover open={showEmoji} onClose={() => setShowEmoji(false)}
               onPick={(e) => setInput((v) => v + e)} />
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={() => setShowAi((v) => !v)}
-              title={t("ai.generateImage")}
-              className={`p-2 rounded-lg transition-colors ${showAi ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
-              <ImageIcon size={20} />
-            </motion.button>
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={() => setShowEmoji((v) => !v)} title="Emoji"
-              className={`p-2 rounded-lg transition-colors ${showEmoji ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
-              <Smile size={20} />
-            </motion.button>
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={() => setShowLoc(true)} title="Share location"
-              className={`p-2 rounded-lg transition-colors ${loc.sharing ? "bg-green-500/20 text-green-500" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
-              <MapPin size={20} />
-            </motion.button>
-            <VoiceRecorder myUserId={myUserId}
-              onSent={(url, type, dur) => onSendMessage(`🎙️ ${dur}s`, url, type)} />
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={() => setShowAttach(true)} title="Adjuntar"
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-              <Paperclip size={20} />
-            </motion.button>
-            <input
-              type="text" value={input}
-              onChange={(e) => { setInput(e.target.value); sendTyping(); }}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setTimeout(() => setInputFocused(false), 150)}
-              placeholder={t("chat.placeholder")}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-muted text-foreground placeholder:text-muted-foreground text-sm outline-none focus:ring-2 focus:ring-ring/30 transition-all"
-            />
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={() => setShowExpanded(true)} title="Expandir el cuadro de texto"
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-              <Maximize2 size={18} />
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={handleSend} disabled={!input.trim()}
-              className="p-2.5 rounded-xl magma-gradient text-primary-foreground disabled:opacity-40 magma-glow-sm transition-all"
-            >
-              <Send size={18} />
-            </motion.button>
+            <div className={`${showTools ? "flex" : "hidden"} md:flex items-center gap-1 flex-wrap`}>
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowAi((v) => !v)}
+                title={t("ai.generateImage")}
+                className={`p-2 rounded-lg transition-colors ${showAi ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+                <ImageIcon size={20} />
+              </motion.button>
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowEmoji((v) => !v)} title="Emoji"
+                className={`p-2 rounded-lg transition-colors ${showEmoji ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+                <Smile size={20} />
+              </motion.button>
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowLoc(true)} title="Share location"
+                className={`p-2 rounded-lg transition-colors ${loc.sharing ? "bg-green-500/20 text-green-500" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+                <MapPin size={20} />
+              </motion.button>
+              <VoiceRecorder myUserId={myUserId}
+                onSent={(url, type, dur) => onSendMessage(`🎙️ ${dur}s`, url, type)} />
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowAttach(true)} title="Adjuntar"
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+                <Paperclip size={20} />
+              </motion.button>
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowExpanded(true)} title="Expandir el cuadro de texto"
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+                <Maximize2 size={18} />
+              </motion.button>
+            </div>
+            <div className="flex items-end gap-2 min-w-0">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowTools((v) => !v)}
+                title="Más opciones"
+                className={`md:hidden shrink-0 p-2.5 rounded-xl transition-colors ${showTools ? "bg-primary/20 text-primary rotate-45" : "bg-muted text-muted-foreground"}`}>
+                <Plus size={20} />
+              </motion.button>
+              <input
+                type="text" value={input}
+                onChange={(e) => { setInput(e.target.value); sendTyping(); }}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setTimeout(() => setInputFocused(false), 150)}
+                placeholder={t("chat.placeholder")}
+                className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-muted text-foreground placeholder:text-muted-foreground text-base md:text-sm outline-none focus:ring-2 focus:ring-ring/30 transition-all"
+              />
+              <motion.button
+                whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={handleSend} disabled={!input.trim()}
+                className="shrink-0 p-2.5 rounded-xl magma-gradient text-primary-foreground disabled:opacity-40 magma-glow-sm transition-all"
+              >
+                <Send size={18} />
+              </motion.button>
+            </div>
           </div>
         )}
         {/* Smart in-app keyboard (user setting) */}
