@@ -1,4 +1,4 @@
-@tailwind base;
+#lovable-badge { display: none !important; }
 @tailwind components;
 @tailwind utilities;
 
