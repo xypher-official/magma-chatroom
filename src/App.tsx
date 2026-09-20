@@ -17,6 +17,7 @@ import MagaiAssistant from "./pages/MagaiAssistant.tsx";
 import { UiSettingsProvider } from "@/hooks/useUiSettings";
 import { I18nProvider } from "@/hooks/useI18n";
 import { useSiteTextOverrides } from "@/hooks/useSiteTextOverrides";
+import AppPermissionsGate from "@/components/AppPermissionsGate";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
     <I18nProvider>
     <TooltipProvider>
       <SiteOverrides />
+      <AppPermissionsGate />
       <Toaster />
       <Sonner />
       <BrowserRouter>
