@@ -1,4 +1,5 @@
 #lovable-badge { display: none !important; }
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
