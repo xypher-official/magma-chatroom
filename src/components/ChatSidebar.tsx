@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
 import { Search, Plus, Settings, LogOut, Shield, MessageCircle, Users } from "lucide-react";
-import magmaLogo from "@/assets/magma-logo.png";
 import Badges from "./Badges";
 import { useState } from "react";
 import { useUiSettings } from "@/hooks/useUiSettings";
+import AppLogoPicker from "./AppLogoPicker";
 
 export interface ContactRow {
   id: string;
@@ -57,7 +57,7 @@ const ChatSidebar = ({
     <div className="h-full flex flex-col bg-card border-r border-border">
       <div className="p-4 flex items-center justify-between border-b border-border">
         <div className="flex items-center gap-3 min-w-0">
-          <img src={magmaLogo} alt="Magma" width={36} height={36} className="rounded-lg" />
+          <AppLogoPicker />
           <div className="min-w-0">
             <h2 className="font-bold text-sm magma-gradient-text">{t("app.name", "Magma Chat")}</h2>
             <p className="text-xs text-muted-foreground truncate flex items-center">
