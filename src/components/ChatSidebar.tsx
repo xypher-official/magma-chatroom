@@ -59,7 +59,10 @@ const ChatSidebar = ({
         <div className="flex items-center gap-3 min-w-0">
           <AppLogoPicker />
           <div className="min-w-0">
-            <h2 className="font-bold text-sm magma-gradient-text">{t("app.name", "Magma Chat")}</h2>
+            <h2 className="font-bold text-sm magma-gradient-text flex items-center gap-1.5">
+              {t("app.name", "Magma Chat")}
+              <a href="/plus" title="ChatRoom Plus" className="text-[10px] font-black px-1.5 py-0.5 rounded-full magma-gradient text-primary-foreground">👑 PLUS</a>
+            </h2>
             <p className="text-xs text-muted-foreground truncate flex items-center">
               <span className="truncate">{currentUser}</span>
               <Badges isAdmin={isAdmin} isVerified={isVerified} size={12} />

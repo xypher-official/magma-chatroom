@@ -14,6 +14,8 @@ import SitePageView from "./pages/SitePageView.tsx";
 import EmbedVideoPage from "./pages/EmbedVideo.tsx";
 import WatchVideo from "./pages/WatchVideo.tsx";
 import MagaiAssistant from "./pages/MagaiAssistant.tsx";
+import PlusPage from "./pages/PlusPage.tsx";
+import ScheduledMessagesPump from "@/components/ScheduledMessagesPump";
 import { UiSettingsProvider } from "@/hooks/useUiSettings";
 import { I18nProvider } from "@/hooks/useI18n";
 import { useSiteTextOverrides } from "@/hooks/useSiteTextOverrides";
@@ -33,6 +35,7 @@ const App = () => (
     <TooltipProvider>
       <SiteOverrides />
       <AppPermissionsGate />
+      <ScheduledMessagesPump />
       <Toaster />
       <Sonner />
       <BrowserRouter>
@@ -46,6 +49,7 @@ const App = () => (
           <Route path="/embed/v/:videoId" element={<EmbedVideoPage />} />
           <Route path="/video/watch/:videoId" element={<WatchVideo />} />
           <Route path="/magai" element={<MagaiAssistant />} />
+          <Route path="/plus" element={<PlusPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           {/* Dynamic site sections and user-created custom slugs (supports nested like /social/videos) */}
           <Route path="/social/videos" element={<SitePageView />} />
