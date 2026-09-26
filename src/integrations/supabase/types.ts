@@ -832,6 +832,8 @@ export type Database = {
           allow_dms: boolean
           avatar_initials: string
           avatar_url: string | null
+          bio: string | null
+          bubble_color: string | null
           created_at: string
           display_name: string
           email: string | null
@@ -848,11 +850,14 @@ export type Database = {
           updated_at: string
           user_id: string
           username: string
+          wallpaper_url: string | null
         }
         Insert: {
           allow_dms?: boolean
           avatar_initials?: string
           avatar_url?: string | null
+          bio?: string | null
+          bubble_color?: string | null
           created_at?: string
           display_name: string
           email?: string | null
@@ -869,11 +874,14 @@ export type Database = {
           updated_at?: string
           user_id: string
           username: string
+          wallpaper_url?: string | null
         }
         Update: {
           allow_dms?: boolean
           avatar_initials?: string
           avatar_url?: string | null
+          bio?: string | null
+          bubble_color?: string | null
           created_at?: string
           display_name?: string
           email?: string | null
@@ -890,6 +898,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           username?: string
+          wallpaper_url?: string | null
         }
         Relationships: []
       }
@@ -935,6 +944,36 @@ export type Database = {
           share_link?: string
           status?: string
           title?: string
+        }
+        Relationships: []
+      }
+      scheduled_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          recipient_id: string
+          send_at: string
+          sender_id: string
+          sent_at: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          recipient_id: string
+          send_at: string
+          sender_id: string
+          sent_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          recipient_id?: string
+          send_at?: string
+          sender_id?: string
+          sent_at?: string | null
         }
         Relationships: []
       }
@@ -1485,6 +1524,7 @@ export type Database = {
       magai_blocked_until: { Args: never; Returns: string }
       magai_consume: { Args: { _cost: number }; Returns: number }
       magai_used_today: { Args: never; Returns: number }
+      process_scheduled_messages: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "user"

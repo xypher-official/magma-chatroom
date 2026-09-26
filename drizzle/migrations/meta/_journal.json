@@ -15,6 +15,13 @@
       "when": 1789606549460,
       "tag": "0001_magai_unlimited_with_burst_block",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790446095820,
+      "tag": "0002_plus_wallpaper_and_scheduled_messages",
+      "breakpoints": true
     }
   ]
 }
