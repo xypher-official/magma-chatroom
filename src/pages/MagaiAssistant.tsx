@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import LavaParticles from "@/components/LavaParticles";
 import MagmaLoader from "@/components/MagmaLoader";
 import AttachmentPicker, { SentKind } from "@/components/AttachmentPicker";
+import { AGENT_PROMPT, runActions, stripActions } from "@/lib/magaiAgent";
+import { usePlus } from "@/hooks/usePlus";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Attachment { url: string; kind: SentKind; name: string }
@@ -111,6 +113,7 @@ const TypewriterMarkdown = ({ text, onDone }: { text: string; onDone: () => void
 
 const MagaiAssistant = () => {
   const navigate = useNavigate();
+  const plus = usePlus();
   const [booting, setBooting] = useState(true);
   const [provider, setProvider] = useState<string>(() => localStorage.getItem(LS.provider) ?? "openrouter");
   const [apiKey, setApiKey] = useState("");
@@ -258,7 +261,7 @@ const MagaiAssistant = () => {
         headers,
         body: JSON.stringify({
           model: (model || def.defaultModel).trim(),
-          messages: [{ role: "system", content: SYSTEM }, ...wire],
+          messages: [{ role: "system", content: SYSTEM + AGENT_PROMPT + `\nFecha actual: ${new Date().toISOString()}` }, ...wire],
           stream: true,
         }),
       });
@@ -289,7 +292,16 @@ const MagaiAssistant = () => {
           } catch { /* ignore partial chunk */ }
         }
       }
-      const finalContent = full || "(sin respuesta)";
+      let finalContent = full || "(sin respuesta)";
+      if (/```magma-action/.test(finalContent)) {
+        if (plus.subscribed) {
+          const results = await runActions(finalContent);
+          finalContent = `${stripActions(finalContent)}\n\n${results.join("\n")}`;
+          results.forEach((r) => toast(r));
+        } else {
+          finalContent = `${stripActions(finalContent)}\n\n👑 Hazte **ChatRoom Plus** para que MAGAI haga estos cambios por ti.`;
+        }
+      }
       writeMessages([...next, { role: "assistant", content: finalContent }]);
       setTypingKey(`${Date.now()}-${next.length}`);
     } catch (e: any) {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus, Maximize2, Paperclip, FileText } from "lucide-react";
 import AttachmentPicker from "./AttachmentPicker";
+import { useMyWallpaper } from "@/hooks/useMyWallpaper";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
@@ -41,6 +42,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-dig
 
 const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenManage, onMyRoleResolved }: Props) => {
   const { t } = useI18n();
+  const wallStyle = useMyWallpaper();
   const [messages, setMessages] = useState<GroupMsg[]>([]);
   const [input, setInput] = useState("");
   const [memberCount, setMemberCount] = useState(0);
@@ -226,7 +228,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
         )}
       </motion.div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ember-bg">
+      <div className={`flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ${wallStyle ? "" : "ember-bg"}`} style={wallStyle}>
         <AnimatePresence initial={false}>
           {visibleMessages.map((msg) => {
             const isOwn = msg.sender_id === myUserId;
