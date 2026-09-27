@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus, Maximize2, Paperclip, FileText } from "lucide-react";
 import AttachmentPicker from "./AttachmentPicker";
+import { useMyWallpaper } from "@/hooks/useMyWallpaper";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Badges from "./Badges";
@@ -226,7 +227,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
         )}
       </motion.div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ember-bg">
+      <div className={`flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ${wallStyle ? "" : "ember-bg"}`} style={wallStyle}>
         <AnimatePresence initial={false}>
           {visibleMessages.map((msg) => {
             const isOwn = msg.sender_id === myUserId;

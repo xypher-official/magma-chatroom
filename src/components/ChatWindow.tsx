@@ -5,6 +5,7 @@ import ExpandedComposer from "./ExpandedComposer";
 import AttachmentPicker from "./AttachmentPicker";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
+import { useMyWallpaper } from "@/hooks/useMyWallpaper";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import EmojiPickerPopover from "./EmojiPickerPopover";
@@ -259,7 +260,7 @@ const ChatWindow = ({
         </div>
       </motion.div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ember-bg">
+      <div className={`flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ${wallStyle ? "" : "ember-bg"}`} style={wallStyle}>
         <AnimatePresence initial={false}>
           {messages.map((msg) => {
             const isOwn = msg.sender_id === myUserId;
