@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import LavaParticles from "@/components/LavaParticles";
 import MagmaLoader from "@/components/MagmaLoader";
 import AttachmentPicker, { SentKind } from "@/components/AttachmentPicker";
+import { AGENT_PROMPT, runActions, stripActions } from "@/lib/magaiAgent";
+import { usePlus } from "@/hooks/usePlus";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Attachment { url: string; kind: SentKind; name: string }
