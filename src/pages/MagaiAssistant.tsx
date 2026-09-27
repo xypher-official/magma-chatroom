@@ -113,6 +113,7 @@ const TypewriterMarkdown = ({ text, onDone }: { text: string; onDone: () => void
 
 const MagaiAssistant = () => {
   const navigate = useNavigate();
+  const plus = usePlus();
   const [booting, setBooting] = useState(true);
   const [provider, setProvider] = useState<string>(() => localStorage.getItem(LS.provider) ?? "openrouter");
   const [apiKey, setApiKey] = useState("");
