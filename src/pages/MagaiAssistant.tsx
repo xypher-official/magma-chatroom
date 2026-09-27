@@ -258,7 +258,7 @@ const MagaiAssistant = () => {
         headers,
         body: JSON.stringify({
           model: (model || def.defaultModel).trim(),
-          messages: [{ role: "system", content: SYSTEM }, ...wire],
+          messages: [{ role: "system", content: SYSTEM + AGENT_PROMPT + `\nFecha actual: ${new Date().toISOString()}` }, ...wire],
           stream: true,
         }),
       });
@@ -289,7 +289,16 @@ const MagaiAssistant = () => {
           } catch { /* ignore partial chunk */ }
         }
       }
-      const finalContent = full || "(sin respuesta)";
+      let finalContent = full || "(sin respuesta)";
+      if (/```magma-action/.test(finalContent)) {
+        if (plus.subscribed) {
+          const results = await runActions(finalContent);
+          finalContent = `${stripActions(finalContent)}\n\n${results.join("\n")}`;
+          results.forEach((r) => toast(r));
+        } else {
+          finalContent = `${stripActions(finalContent)}\n\n👑 Hazte **ChatRoom Plus** para que MAGAI haga estos cambios por ti.`;
+        }
+      }
       writeMessages([...next, { role: "assistant", content: finalContent }]);
       setTypingKey(`${Date.now()}-${next.length}`);
     } catch (e: any) {

@@ -100,6 +100,7 @@ const ChatWindow = ({
   onSendMessage, onBack, onStartCall,
 }: ChatWindowProps) => {
   const { t } = useI18n();
+  const wallStyle = useMyWallpaper();
   const [input, setInput] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
   const [showAi, setShowAi] = useState(false);

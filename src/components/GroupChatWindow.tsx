@@ -42,6 +42,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-dig
 
 const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenManage, onMyRoleResolved }: Props) => {
   const { t } = useI18n();
+  const wallStyle = useMyWallpaper();
   const [messages, setMessages] = useState<GroupMsg[]>([]);
   const [input, setInput] = useState("");
   const [memberCount, setMemberCount] = useState(0);
