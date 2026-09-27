@@ -27,13 +27,13 @@ export async function runActions(text: string): Promise<string[]> {
     try { a = JSON.parse(m[1]); } catch { out.push("⚠️ Acción inválida"); continue; }
     try {
       if (a.type === "update_profile") {
-        const patch: Record<string, string> = {};
+        const patch: Record<string, any> = {};
         for (const k of ["display_name", "bio", "avatar_url", "wallpaper_url", "bubble_color"]) {
           if (typeof a[k] === "string") patch[k] = a[k].slice(0, 2000);
         }
         if (patch.display_name) patch.display_name = patch.display_name.slice(0, 50);
         if (!Object.keys(patch).length) continue;
-        const { error } = await supabase.from("profiles").update(patch).eq("user_id", uid);
+        const { error } = await supabase.from("profiles").update(patch as any).eq("user_id", uid);
         if (error) throw error;
         out.push(`✅ Perfil actualizado (${Object.keys(patch).join(", ")})`);
       } else if (a.type === "send_message") {
