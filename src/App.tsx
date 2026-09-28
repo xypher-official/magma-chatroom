@@ -50,6 +50,7 @@ const App = () => (
           <Route path="/video/watch/:videoId" element={<WatchVideo />} />
           <Route path="/magai" element={<MagaiAssistant />} />
           <Route path="/plus" element={<PlusPage />} />
+          <Route path="/membership" element={<PlusPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           {/* Dynamic site sections and user-created custom slugs (supports nested like /social/videos) */}
           <Route path="/social/videos" element={<SitePageView />} />

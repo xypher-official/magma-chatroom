@@ -24,8 +24,8 @@ Deno.serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: PRICE_ID, quantity: 1 }],
       mode: "subscription",
-      success_url: `${origin}/plus?success=1`,
-      cancel_url: `${origin}/plus?canceled=1`,
+      success_url: `${origin}/membership?success=1`,
+      cancel_url: `${origin}/membership?canceled=1`,
     });
     return new Response(JSON.stringify({ url: session.url }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e) {
