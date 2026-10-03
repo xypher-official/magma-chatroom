@@ -328,37 +328,47 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
             <Lock size={14} /> {t("group.cantWrite")}
           </div>
         ) : (
-          <div className="flex items-center gap-2 relative">
+          <div className="flex items-center gap-1.5 sm:gap-2 relative">
             <EmojiPickerPopover open={showEmoji} onClose={() => setShowEmoji(false)}
               onPick={(e) => setInput((v) => v + e)} />
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={() => setShowAi((v) => !v)} title={t("ai.generateImage")}
-              className={`p-2 rounded-lg transition-colors ${showAi ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
-              <ImageIcon size={20} />
-            </motion.button>
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={() => setShowEmoji((v) => !v)} title="Emoji"
-              className={`p-2 rounded-lg transition-colors ${showEmoji ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
-              <Smile size={20} />
-            </motion.button>
-            <VoiceRecorder myUserId={myUserId}
-              onSent={(url, type, dur) => send(url, type, `🎙️ ${dur}s`)} />
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-              onClick={() => setShowAttach(true)} title="Adjuntar"
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-              <Paperclip size={20} />
-            </motion.button>
+            {/* Mobile: tools hidden behind "+" */}
+            <div className="md:hidden">
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowTools((v) => !v)} title="Más opciones"
+                className={`p-2 rounded-lg transition-colors ${showTools ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+                <Plus size={20} />
+              </motion.button>
+            </div>
+            <div className={`${showTools ? "flex" : "hidden"} md:flex items-center gap-1.5 sm:gap-2 absolute md:static bottom-full left-0 mb-2 p-2 md:p-0 rounded-xl md:rounded-none glass-panel md:bg-transparent md:border-0 md:shadow-none z-20`}>
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowAi((v) => !v)} title={t("ai.generateImage")}
+                className={`p-2 rounded-lg transition-colors ${showAi ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+                <ImageIcon size={20} />
+              </motion.button>
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowEmoji((v) => !v)} title="Emoji"
+                className={`p-2 rounded-lg transition-colors ${showEmoji ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground hover:text-primary"}`}>
+                <Smile size={20} />
+              </motion.button>
+              <VoiceRecorder myUserId={myUserId}
+                onSent={(url, type, dur) => send(url, type, `🎙️ ${dur}s`)} />
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={() => setShowAttach(true)} title="Adjuntar"
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+                <Paperclip size={20} />
+              </motion.button>
+            </div>
             <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
               onInput={sendTyping}
               placeholder={t("chat.placeholder")}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-muted text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/30" />
+              className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-muted text-foreground text-sm outline-none focus:ring-2 focus:ring-ring/30" />
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
               onClick={() => setShowExpanded(true)} title="Expandir el cuadro de texto"
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
+              className="hidden md:block p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
               <Maximize2 size={18} />
             </motion.button>
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => send()} disabled={!input.trim()}
-              className="p-2.5 rounded-xl magma-gradient text-primary-foreground disabled:opacity-40 magma-glow-sm">
+              className="p-2.5 rounded-xl magma-gradient text-primary-foreground disabled:opacity-40 magma-glow-sm flex-shrink-0">
               <Send size={18} />
             </motion.button>
           </div>
