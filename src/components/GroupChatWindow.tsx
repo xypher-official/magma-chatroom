@@ -45,6 +45,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const wallStyle = useMyWallpaper();
   const [messages, setMessages] = useState<GroupMsg[]>([]);
   const [input, setInput] = useState("");
+  const [showTools, setShowTools] = useState(false);
   const [memberCount, setMemberCount] = useState(0);
   const [myRole, setMyRole] = useState<Role | null>(null);
   const [showAi, setShowAi] = useState(false);
