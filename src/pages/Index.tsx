@@ -230,7 +230,7 @@ const Index = () => {
   }, [profiles]);
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="min-h-dvh bg-background relative overflow-hidden">
       <LavaParticles />
       <SiteEffectsLayer />
       <SiteModeGate isAdmin={isAdmin} myUserId={session?.user.id} hasSession={!!session}>
@@ -241,7 +241,7 @@ const Index = () => {
           </motion.div>
         ) : (
           <motion.div key="chat" initial={{ opacity: 0, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }} className="relative z-10 h-screen flex flex-col">
+            transition={{ duration: 0.5 }} className="relative z-10 h-dvh flex flex-col">
             {isAdmin || document.documentElement.dataset.sitePrivate !== "1" ? (
               <>
                 {!showRightPane && (
