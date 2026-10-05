@@ -7,11 +7,10 @@ import { toast } from "sonner";
  * Creates/updates rows in `calls` and exchanges offer/answer/ice via `call_signals`.
  */
 
-const ICE_SERVERS: RTCIceServer[] = [
+const FALLBACK_ICE: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
-  // Free public TURN — used only if STUN fails (symmetric NAT, etc.)
   {
     urls: [
       "turn:openrelay.metered.ca:80",
@@ -23,7 +22,22 @@ const ICE_SERVERS: RTCIceServer[] = [
   },
 ];
 
-export type CallState = "idle" | "calling" | "ringing" | "connecting" | "active" | "ended";
+let iceCache: { servers: RTCIceServer[]; at: number } | null = null;
+const getIceServers = async (): Promise<RTCIceServer[]> => {
+  if (iceCache && Date.now() - iceCache.at < 30 * 60_000) return iceCache.servers;
+  try {
+    const { data } = await supabase.functions.invoke("turn-credentials");
+    if (data?.hasTurn && Array.isArray(data.iceServers)) {
+      iceCache = { servers: data.iceServers, at: Date.now() };
+      return data.iceServers;
+    }
+  } catch { /* fallback */ }
+  return FALLBACK_ICE;
+};
+
+const RING_TIMEOUT_MS = 45_000;
+
+export type CallState = "idle" | "calling" | "ringing" | "connecting" | "active" | "reconnecting" | "ended";
 
 export interface ActiveCall {
   id: string;
