@@ -304,10 +304,18 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       otherUserRef.current = calleeId;
       setActive({ id: callRow.id, callerId: myUserId, calleeId, callType });
 
-      const pc = setupPeerConnection(calleeId);
+      const pc = setupPeerConnection(calleeId, await getIceServers());
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
       await subscribeSignals(callRow.id);
       // Offer is sent when callee accepts (status → 'accepted' via UPDATE listener).
+      const ringingId = callRow.id;
+      setTimeout(async () => {
+        if (callIdRef.current === ringingId && stateRef.current === "calling") {
+          await supabase.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", ringingId);
+          toast.info("📞 No contestó");
+          await cleanup(false);
+        }
+      }, RING_TIMEOUT_MS);
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message?.includes("Permission") ? "Microphone/camera permission denied" : (e?.message ?? "Call failed"));
@@ -324,7 +332,7 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       isCallerRef.current = false;
       otherUserRef.current = incoming.callerId;
       setActive(incoming);
-      const pc = setupPeerConnection(incoming.callerId);
+      const pc = setupPeerConnection(incoming.callerId, await getIceServers());
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
       await subscribeSignals(incoming.id);
       // Signal caller to send the offer now that we're ready.
@@ -375,9 +383,26 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       }, (payload) => {
         const c: any = payload.new;
         if (c.status !== "ringing") return;
-        if (stateRef.current !== "idle") return;
+        if (stateRef.current !== "idle") {
+          // Busy: auto-decline so the caller isn't left hanging.
+          supabase.from("calls").update({ status: "declined", ended_at: new Date().toISOString() }).eq("id", c.id).then(() => {}, () => {});
+          return;
+        }
         setIncoming({ id: c.id, callerId: c.caller_id, calleeId: c.callee_id, callType: c.call_type });
         setState("ringing");
+      })
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "calls",
+        filter: `callee_id=eq.${myUserId}`,
+      }, (payload) => {
+        const c: any = payload.new;
+        // Caller cancelled / timed out while we were still ringing.
+        if (stateRef.current === "ringing" && ["ended", "missed", "declined"].includes(c.status)) {
+          setIncoming((cur) => {
+            if (cur?.id === c.id) { setState("idle"); if (c.status !== "declined") toast.info("📞 Llamada perdida"); return null; }
+            return cur;
+          });
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
