@@ -125,7 +125,7 @@ const CallOverlay = ({ call, profiles, myUserId }: Props) => {
               </motion.div>
               <p className="text-3xl font-bold text-foreground mt-6">{other.display_name}</p>
               <p className="text-muted-foreground mt-2">
-                {state === "calling" ? t("call.calling") : state === "active" ? t("call.connected") : "…"}
+                {state === "calling" ? t("call.calling") : state === "active" ? t("call.connected") : state === "reconnecting" ? "Reconectando…" : "Conectando…"}
               </p>
               {state === "active" && (
                 <p className="text-2xl font-mono mt-3 magma-gradient-text font-bold">{fmtTime(elapsed)}</p>
@@ -138,7 +138,7 @@ const CallOverlay = ({ call, profiles, myUserId }: Props) => {
             <div className="absolute top-0 inset-x-0 p-5 bg-gradient-to-b from-black/70 to-transparent">
               <p className="text-white font-semibold text-lg">{other.display_name}</p>
               <p className="text-white/70 text-xs flex items-center gap-2">
-                <span>{state === "calling" ? t("call.calling") : state === "active" ? t("call.connected") : "…"}</span>
+                <span>{state === "calling" ? t("call.calling") : state === "active" ? t("call.connected") : state === "reconnecting" ? "Reconectando…" : "Conectando…"}</span>
                 {state === "active" && <span className="font-mono text-amber-300">{fmtTime(elapsed)}</span>}
               </p>
             </div>

@@ -7,11 +7,10 @@ import { toast } from "sonner";
  * Creates/updates rows in `calls` and exchanges offer/answer/ice via `call_signals`.
  */
 
-const ICE_SERVERS: RTCIceServer[] = [
+const FALLBACK_ICE: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
-  // Free public TURN — used only if STUN fails (symmetric NAT, etc.)
   {
     urls: [
       "turn:openrelay.metered.ca:80",
@@ -23,7 +22,22 @@ const ICE_SERVERS: RTCIceServer[] = [
   },
 ];
 
-export type CallState = "idle" | "calling" | "ringing" | "connecting" | "active" | "ended";
+let iceCache: { servers: RTCIceServer[]; at: number } | null = null;
+const getIceServers = async (): Promise<RTCIceServer[]> => {
+  if (iceCache && Date.now() - iceCache.at < 30 * 60_000) return iceCache.servers;
+  try {
+    const { data } = await supabase.functions.invoke("turn-credentials");
+    if (data?.hasTurn && Array.isArray(data.iceServers)) {
+      iceCache = { servers: data.iceServers, at: Date.now() };
+      return data.iceServers;
+    }
+  } catch { /* fallback */ }
+  return FALLBACK_ICE;
+};
+
+const RING_TIMEOUT_MS = 45_000;
+
+export type CallState = "idle" | "calling" | "ringing" | "connecting" | "active" | "reconnecting" | "ended";
 
 export interface ActiveCall {
   id: string;
@@ -99,8 +113,8 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
     });
   }, [myUserId]);
 
-  const setupPeerConnection = useCallback((otherUserId: string) => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const setupPeerConnection = useCallback((otherUserId: string, iceServers: RTCIceServer[]) => {
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
     const remote = new MediaStream();
     remoteStreamRef.current = remote;
@@ -121,21 +135,47 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remote) {
         remoteVideoRef.current.srcObject = remote;
       }
+      remoteVideoRef.current?.play().catch(() => {});
+    };
+
+    let dropTimer: ReturnType<typeof setTimeout> | null = null;
+    let restarted = false;
+    const tryRestart = async () => {
+      if (!isCallerRef.current || restarted || pc.signalingState !== "stable") return;
+      restarted = true;
+      try {
+        const offer = await pc.createOffer({ iceRestart: true });
+        await pc.setLocalDescription(offer);
+        await sendSignal(otherUserId, "offer", { type: offer.type, sdp: offer.sdp });
+      } catch (e) { console.warn("ice restart failed", e); }
     };
     pc.oniceconnectionstatechange = () => {
       const s = pc.iceConnectionState;
-      if (s === "connected" || s === "completed") setState("active");
-      if (s === "failed") { toast.error("Call connection failed"); cleanup(); }
+      if (s === "connected" || s === "completed") {
+        if (dropTimer) { clearTimeout(dropTimer); dropTimer = null; }
+        restarted = false;
+        setState("active");
+      } else if (s === "disconnected" || s === "failed") {
+        if (stateRef.current === "active") setState("reconnecting");
+        if (s === "failed") tryRestart();
+        else setTimeout(() => { if (pc.iceConnectionState === "disconnected") tryRestart(); }, 4000);
+        if (!dropTimer) {
+          dropTimer = setTimeout(() => {
+            if (pcRef.current === pc && !["connected", "completed"].includes(pc.iceConnectionState)) {
+              toast.error("Se perdió la conexión de la llamada");
+              cleanup();
+            }
+          }, 20_000);
+        }
+      }
     };
     pc.onconnectionstatechange = () => {
-      const s = pc.connectionState;
-      if (s === "connected") {
+      if (pc.connectionState === "connected") {
         setState("active");
         if (callIdRef.current && myUserId) {
           supabase.from("call_events").insert({ call_id: callIdRef.current, user_id: myUserId, event_type: "joined" }).then(() => {}, () => {});
         }
       }
-      if (s === "failed") cleanup();
     };
     return pc;
   }, [cleanup, sendSignal, myUserId]);
@@ -264,10 +304,18 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       otherUserRef.current = calleeId;
       setActive({ id: callRow.id, callerId: myUserId, calleeId, callType });
 
-      const pc = setupPeerConnection(calleeId);
+      const pc = setupPeerConnection(calleeId, await getIceServers());
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
       await subscribeSignals(callRow.id);
       // Offer is sent when callee accepts (status → 'accepted' via UPDATE listener).
+      const ringingId = callRow.id;
+      setTimeout(async () => {
+        if (callIdRef.current === ringingId && stateRef.current === "calling") {
+          await supabase.from("calls").update({ status: "missed", ended_at: new Date().toISOString() }).eq("id", ringingId);
+          toast.info("📞 No contestó");
+          await cleanup(false);
+        }
+      }, RING_TIMEOUT_MS);
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message?.includes("Permission") ? "Microphone/camera permission denied" : (e?.message ?? "Call failed"));
@@ -284,7 +332,7 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       isCallerRef.current = false;
       otherUserRef.current = incoming.callerId;
       setActive(incoming);
-      const pc = setupPeerConnection(incoming.callerId);
+      const pc = setupPeerConnection(incoming.callerId, await getIceServers());
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
       await subscribeSignals(incoming.id);
       // Signal caller to send the offer now that we're ready.
@@ -335,9 +383,26 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       }, (payload) => {
         const c: any = payload.new;
         if (c.status !== "ringing") return;
-        if (stateRef.current !== "idle") return;
+        if (stateRef.current !== "idle") {
+          // Busy: auto-decline so the caller isn't left hanging.
+          supabase.from("calls").update({ status: "declined", ended_at: new Date().toISOString() }).eq("id", c.id).then(() => {}, () => {});
+          return;
+        }
         setIncoming({ id: c.id, callerId: c.caller_id, calleeId: c.callee_id, callType: c.call_type });
         setState("ringing");
+      })
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "calls",
+        filter: `callee_id=eq.${myUserId}`,
+      }, (payload) => {
+        const c: any = payload.new;
+        // Caller cancelled / timed out while we were still ringing.
+        if (stateRef.current === "ringing" && ["ended", "missed", "declined"].includes(c.status)) {
+          setIncoming((cur) => {
+            if (cur?.id === c.id) { setState("idle"); if (c.status !== "declined") toast.info("📞 Llamada perdida"); return null; }
+            return cur;
+          });
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
