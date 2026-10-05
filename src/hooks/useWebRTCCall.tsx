@@ -113,8 +113,8 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
     });
   }, [myUserId]);
 
-  const setupPeerConnection = useCallback((otherUserId: string) => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const setupPeerConnection = useCallback((otherUserId: string, iceServers: RTCIceServer[]) => {
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
     const remote = new MediaStream();
     remoteStreamRef.current = remote;
@@ -135,21 +135,47 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remote) {
         remoteVideoRef.current.srcObject = remote;
       }
+      remoteVideoRef.current?.play().catch(() => {});
+    };
+
+    let dropTimer: ReturnType<typeof setTimeout> | null = null;
+    let restarted = false;
+    const tryRestart = async () => {
+      if (!isCallerRef.current || restarted || pc.signalingState !== "stable") return;
+      restarted = true;
+      try {
+        const offer = await pc.createOffer({ iceRestart: true });
+        await pc.setLocalDescription(offer);
+        await sendSignal(otherUserId, "offer", { type: offer.type, sdp: offer.sdp });
+      } catch (e) { console.warn("ice restart failed", e); }
     };
     pc.oniceconnectionstatechange = () => {
       const s = pc.iceConnectionState;
-      if (s === "connected" || s === "completed") setState("active");
-      if (s === "failed") { toast.error("Call connection failed"); cleanup(); }
+      if (s === "connected" || s === "completed") {
+        if (dropTimer) { clearTimeout(dropTimer); dropTimer = null; }
+        restarted = false;
+        setState("active");
+      } else if (s === "disconnected" || s === "failed") {
+        if (stateRef.current === "active") setState("reconnecting");
+        if (s === "failed") tryRestart();
+        else setTimeout(() => { if (pc.iceConnectionState === "disconnected") tryRestart(); }, 4000);
+        if (!dropTimer) {
+          dropTimer = setTimeout(() => {
+            if (pcRef.current === pc && !["connected", "completed"].includes(pc.iceConnectionState)) {
+              toast.error("Se perdió la conexión de la llamada");
+              cleanup();
+            }
+          }, 20_000);
+        }
+      }
     };
     pc.onconnectionstatechange = () => {
-      const s = pc.connectionState;
-      if (s === "connected") {
+      if (pc.connectionState === "connected") {
         setState("active");
         if (callIdRef.current && myUserId) {
           supabase.from("call_events").insert({ call_id: callIdRef.current, user_id: myUserId, event_type: "joined" }).then(() => {}, () => {});
         }
       }
-      if (s === "failed") cleanup();
     };
     return pc;
   }, [cleanup, sendSignal, myUserId]);
