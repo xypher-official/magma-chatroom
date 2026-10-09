@@ -267,7 +267,7 @@ const LiveStream = () => {
       fresh.getAudioTracks().forEach((t) => t.stop());
       vt.enabled = !paused;
       for (const pc of peers.current.values()) {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video" || (!s.track && s.dtmf === null));
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
         await sender?.replaceTrack(vt).catch(() => {});
       }
       if (videoRef.current) videoRef.current.srcObject = old;

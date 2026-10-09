@@ -15,6 +15,7 @@ import EmbedVideoPage from "./pages/EmbedVideo.tsx";
 import WatchVideo from "./pages/WatchVideo.tsx";
 import MagaiAssistant from "./pages/MagaiAssistant.tsx";
 import PlusPage from "./pages/PlusPage.tsx";
+import LiveStream from "./pages/LiveStream.tsx";
 import ScheduledMessagesPump from "@/components/ScheduledMessagesPump";
 import { UiSettingsProvider } from "@/hooks/useUiSettings";
 import { I18nProvider } from "@/hooks/useI18n";
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/magai" element={<MagaiAssistant />} />
           <Route path="/plus" element={<PlusPage />} />
           <Route path="/membership" element={<PlusPage />} />
+          <Route path="/live/:streamId" element={<LiveStream />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           {/* Dynamic site sections and user-created custom slugs (supports nested like /social/videos) */}
           <Route path="/social/videos" element={<SitePageView />} />
