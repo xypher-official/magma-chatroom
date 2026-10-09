@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import MagmaVideoPlayer from "@/components/MagmaVideoPlayer";
+import LiveNowStrip from "@/components/LiveNowStrip";
 import { Code2, Copy } from "lucide-react";
 
 type VideoRow = {
@@ -285,6 +286,7 @@ const MSocialVideos = ({ myUserId, isAdmin, profiles }: Props) => {
           )}
         </div>
       </div>
+      <LiveNowStrip />
 
       {/* Channel banner */}
       {channel && (
