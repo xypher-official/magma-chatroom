@@ -530,6 +530,38 @@ export type Database = {
         }
         Relationships: []
       }
+      live_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          stream_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          stream_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          stream_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_chat_messages_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_events: {
         Row: {
           countdown_label: string
@@ -568,6 +600,36 @@ export type Database = {
           is_draft?: boolean
           publish_at?: string | null
           theme?: Json
+          title?: string
+        }
+        Relationships: []
+      }
+      live_streams: {
+        Row: {
+          ended_at: string | null
+          host_id: string
+          id: string
+          source: string
+          started_at: string
+          status: string
+          title: string
+        }
+        Insert: {
+          ended_at?: string | null
+          host_id: string
+          id?: string
+          source?: string
+          started_at?: string
+          status?: string
+          title?: string
+        }
+        Update: {
+          ended_at?: string | null
+          host_id?: string
+          id?: string
+          source?: string
+          started_at?: string
+          status?: string
           title?: string
         }
         Relationships: []
