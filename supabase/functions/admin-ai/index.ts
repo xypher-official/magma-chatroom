@@ -500,7 +500,13 @@ Deno.serve(async (req) => {
     let usedProvider = "lovable";
     const extraHeaders: Record<string, string> = {};
 
-    if (activeProvider?.api_key && activeProvider.model) {
+    const HF_TOKEN = Deno.env.get("HUGGINGFACE_API_KEY");
+    if (HF_TOKEN) {
+      endpoint = "https://router.huggingface.co/v1/chat/completions";
+      apiKey = HF_TOKEN;
+      model = "Qwen/Qwen3-VL-235B-A22B-Instruct";
+      usedProvider = "huggingface";
+    } else if (activeProvider?.api_key && activeProvider.model) {
       const base = (activeProvider.base_url || PROVIDER_BASES[activeProvider.provider] || "").replace(/\/+$/, "");
       if (base) {
         endpoint = `${base}/chat/completions`;
