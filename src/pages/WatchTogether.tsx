@@ -61,10 +61,10 @@ const WatchTogether = () => {
 
   // Host writes state
   const push = async (patch: Partial<Session>) => {
-    const a = adapter.current; if (!s) return;
-    const body = { position: a?.get() ?? s.position, position_at: new Date().toISOString(), ...patch };
-    setS({ ...s, ...body } as Session);
-    await supabase.from("watch_sessions").update(body).eq("id", s.id);
+    const a = adapter.current; const cur = sRef.current; if (!cur) return;
+    const body = { position: a?.get() ?? cur.position, position_at: new Date().toISOString(), ...patch };
+    setS({ ...cur, ...body } as Session);
+    await supabase.from("watch_sessions").update(body).eq("id", cur.id);
   };
 
   // Set up YouTube player

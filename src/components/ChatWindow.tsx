@@ -319,6 +319,11 @@ const ChatWindow = ({
                   {!isDeleted && msg.media_url && msg.media_type?.startsWith("video") && (
                     <video src={msg.media_url} controls className="rounded-xl mb-1 max-h-72 w-full" />
                   )}
+                  {!isDeleted && msg.media_type === "watch" && msg.media_url && (
+                    <a href={msg.media_url} className="flex items-center gap-2 mb-1 px-3 py-2.5 rounded-xl magma-gradient text-primary-foreground text-xs font-semibold">
+                      ▶️ Unirse al Watch Together
+                    </a>
+                  )}
                   {!isDeleted && msg.media_url && msg.media_type === "file" && (
                     <a href={msg.media_url} target="_blank" rel="noreferrer"
                       className="flex items-center gap-2 mb-1 px-2 py-2 rounded-xl bg-background/25 text-xs underline">
@@ -411,7 +416,7 @@ const ChatWindow = ({
               <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                 onClick={() => setShowAttach(true)} title="Adjuntar"
                 className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-                <Paperclip size={20} />
+                <Plus size={20} />
               </motion.button>
               <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                 onClick={() => setShowExpanded(true)} title="Expandir el cuadro de texto"
@@ -484,7 +489,7 @@ const ChatWindow = ({
       <LiveLocationMap open={showMap} onClose={() => setShowMap(false)} myUserId={myUserId}
         conversationId={messages[0]?.conversation_id} contactName={contactName}
         mySharing={loc.sharing} onStopMine={() => { loc.stop(); setShowMap(false); }} />
-      <AttachmentPicker open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
+      <AttachmentPicker conversationId={messages[0]?.conversation_id} open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
         onSend={(text, url, kind) => onSendMessage(text, url, kind)} />
     </div>
   );
