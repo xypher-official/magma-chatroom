@@ -4,17 +4,13 @@ import { Camera, Image as ImageIcon, FileText, Music, Video, X, Loader2, MoreHor
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type SentKind = "image" | "audio" | "video" | "file" | "watch";
-import WatchTogetherSetup from "./WatchTogetherSetup";
-import { Tv } from "lucide-react";
+export type SentKind = "image" | "audio" | "video" | "file";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   myUserId: string;
   onSend: (text: string, url: string, kind: SentKind, name: string) => void;
-  conversationId?: string | null;
-  groupId?: string | null;
 }
 
 interface Recent { name: string; url: string }
@@ -27,12 +23,11 @@ const kindOf = (file: File): SentKind =>
 
 const BUCKET = "social-media";
 
-const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, groupId }: Props) => {
+const AttachmentPicker = ({ open, onClose, myUserId, onSend }: Props) => {
   const [tab, setTab] = useState<"photos" | "files">("photos");
   const [recent, setRecent] = useState<Recent[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [watch, setWatch] = useState(false);
   const imgInput = useRef<HTMLInputElement>(null);
   const camInput = useRef<HTMLInputElement>(null);
   const anyInput = useRef<HTMLInputElement>(null);
@@ -86,17 +81,6 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
   const tile = "flex flex-col items-center justify-center gap-1.5 rounded-2xl glass-panel-strong py-4 text-[11px] text-muted-foreground active:scale-95 transition-transform";
 
   return (
-    <>
-    {watch && (
-      <WatchTogetherSetup myUserId={myUserId} conversationId={conversationId} groupId={groupId}
-        onClose={() => setWatch(false)}
-        onCreated={(id, title) => {
-          setWatch(false);
-          onSend(`🎬 Watch Together: ${title}`, `/watch/${id}`, "watch", title);
-          onClose();
-          window.open(`/watch/${id}`, "_self");
-        }} />
-    )}
     <AnimatePresence>
       {open && (
         <motion.div
@@ -117,9 +101,6 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
               <button onClick={onClose} className="p-2 rounded-xl hover:bg-muted text-muted-foreground"><X size={16} /></button>
             </div>
 
-            <button onClick={() => setWatch(true)} className="w-full mb-3 flex items-center gap-3 rounded-2xl magma-gradient px-4 py-3 text-left text-primary-foreground active:scale-[0.98] transition-transform">
-              <Tv size={22} /><span><span className="block text-sm font-semibold">Watch Together</span><span className="block text-[11px] opacity-80">YouTube, URL, tu dispositivo o embed — en tiempo real</span></span>
-            </button>
             <div className="grid grid-cols-4 gap-2 mb-4">
               <button className={tile} onClick={() => camInput.current?.click()}>
                 <Camera size={20} className="text-primary" /> Cámara
@@ -187,7 +168,6 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
         </motion.div>
       )}
     </AnimatePresence>
-    </>
   );
 };
 
