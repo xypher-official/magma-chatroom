@@ -1552,6 +1552,54 @@ export type Database = {
         }
         Relationships: []
       }
+      watch_sessions: {
+        Row: {
+          active: boolean
+          conversation_id: string | null
+          created_at: string
+          group_id: string | null
+          host_id: string
+          id: string
+          is_playing: boolean
+          position: number
+          position_at: string
+          rate: number
+          source: string
+          source_type: string
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          group_id?: string | null
+          host_id: string
+          id?: string
+          is_playing?: boolean
+          position?: number
+          position_at?: string
+          rate?: number
+          source?: string
+          source_type?: string
+          title?: string
+        }
+        Update: {
+          active?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          group_id?: string | null
+          host_id?: string
+          id?: string
+          is_playing?: boolean
+          position?: number
+          position_at?: string
+          rate?: number
+          source?: string
+          source_type?: string
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
