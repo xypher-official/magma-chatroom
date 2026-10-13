@@ -30,7 +30,8 @@ const WatchTogetherSetup = ({ myUserId, conversationId, groupId, onClose, onCrea
       if (kind === "file") {
         if (!file) throw new Error("Elige un video");
         if (file.size > 200 * 1024 * 1024) throw new Error("Máximo 200 MB");
-        const path = `watch/${myUserId}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
+        const { data: u } = await supabase.auth.getUser();
+        const path = `${u.user?.id ?? myUserId}/watch/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
         const { error } = await supabase.storage.from("social-media").upload(path, file, { contentType: file.type || undefined });
         if (error) throw error;
         source = supabase.storage.from("social-media").getPublicUrl(path).data.publicUrl;
@@ -38,8 +39,9 @@ const WatchTogetherSetup = ({ myUserId, conversationId, groupId, onClose, onCrea
       }
       if (!source) throw new Error("Falta el enlace o código");
       const t = title.trim() || (kind === "file" ? file!.name : "Watch Together");
+      const { data: au } = await supabase.auth.getUser();
       const { data, error } = await supabase.from("watch_sessions").insert({
-        host_id: myUserId, conversation_id: conversationId ?? null, group_id: groupId ?? null,
+        host_id: au.user?.id ?? myUserId, conversation_id: conversationId ?? null, group_id: groupId ?? null,
         source_type: sourceType, source, title: t,
       }).select("id").single();
       if (error) throw error;
