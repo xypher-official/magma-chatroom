@@ -30,7 +30,8 @@ const WatchTogetherSetup = ({ myUserId, conversationId, groupId, onClose, onCrea
       if (kind === "file") {
         if (!file) throw new Error("Elige un video");
         if (file.size > 200 * 1024 * 1024) throw new Error("Máximo 200 MB");
-        const path = `watch/${myUserId}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
+        const { data: u } = await supabase.auth.getUser();
+        const path = `${u.user?.id ?? myUserId}/watch/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
         const { error } = await supabase.storage.from("social-media").upload(path, file, { contentType: file.type || undefined });
         if (error) throw error;
         source = supabase.storage.from("social-media").getPublicUrl(path).data.publicUrl;
