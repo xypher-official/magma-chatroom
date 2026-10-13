@@ -39,8 +39,9 @@ const WatchTogetherSetup = ({ myUserId, conversationId, groupId, onClose, onCrea
       }
       if (!source) throw new Error("Falta el enlace o código");
       const t = title.trim() || (kind === "file" ? file!.name : "Watch Together");
+      const { data: au } = await supabase.auth.getUser();
       const { data, error } = await supabase.from("watch_sessions").insert({
-        host_id: myUserId, conversation_id: conversationId ?? null, group_id: groupId ?? null,
+        host_id: au.user?.id ?? myUserId, conversation_id: conversationId ?? null, group_id: groupId ?? null,
         source_type: sourceType, source, title: t,
       }).select("id").single();
       if (error) throw error;
