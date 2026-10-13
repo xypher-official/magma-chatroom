@@ -271,6 +271,11 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
                   {!isDeleted && msg.media_url && msg.media_type?.startsWith("video") && (
                     <video src={msg.media_url} controls className="rounded-xl mb-1 max-h-72 w-full" />
                   )}
+                  {!isDeleted && msg.media_type === "watch" && msg.media_url && (
+                    <a href={msg.media_url} className="flex items-center gap-2 mb-1 px-3 py-2.5 rounded-xl magma-gradient text-primary-foreground text-xs font-semibold">
+                      ▶️ Unirse al Watch Together
+                    </a>
+                  )}
                   {!isDeleted && msg.media_url && msg.media_type === "file" && (
                     <a href={msg.media_url} target="_blank" rel="noreferrer"
                       className="flex items-center gap-2 mb-1 px-2 py-2 rounded-xl bg-background/25 text-xs underline">
@@ -356,7 +361,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
               <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                 onClick={() => setShowAttach(true)} title="Adjuntar"
                 className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
-                <Paperclip size={20} />
+                <Plus size={20} />
               </motion.button>
             </div>
             <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
@@ -380,7 +385,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
         onClose={() => setShowExpanded(false)}
         onSend={() => { send(); setShowExpanded(false); }}
         placeholder={t("chat.placeholder")} title={`${group.name} · #${activeChannelName}`} />
-      <AttachmentPicker open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
+      <AttachmentPicker groupId={group.id} open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
         onSend={(text, url, kind) => send(url, kind, text)} />
       </div>
     </div>
