@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Flame, Lock, User as UserIcon, Eye, EyeOff, ArrowRight, Check, WandSparkles, Globe, AlertCircle } from "lucide-react";
+import { Flame, Lock, User as UserIcon, Eye, EyeOff, ArrowRight, Check, WandSparkles, Globe, AlertCircle, X, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import magmaLogo from "@/assets/magma-logo.png";
@@ -29,7 +29,7 @@ const AuthPage = () => {
   const [capsLock, setCapsLock] = useState(false);
   const copy = AUTH_COPY[lang];
   const checks = [password.length >= 6, /[a-z]/.test(password) && /[A-Z]/.test(password), /[0-9\W]/.test(password), password.length >= 12];
-  const score = checks.filter(Boolean).length;
+  const score = password.length >= 6 ? checks.filter(Boolean).length : 0;
   const strengthLabels = [copy.weak, copy.weak, copy.fair, copy.strong, copy.excellent];
   const generatePassword = () => {
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
@@ -37,10 +37,10 @@ const AuthPage = () => {
     const generated = "Aa7!" + Array.from(values, value => alphabet[value % alphabet.length]).join("");
     setPassword(generated);
     setConfirmPassword(generated);
-    setShowPwd(true);
+    setShowPwd(false);
     toast.success(copy.generated);
   };
-  const fieldClass = "w-full min-w-0 h-12 pl-11 pr-12 rounded-lg bg-input/60 border border-border text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 transition-all";
+  const fieldClass = "w-full min-w-0 h-12 pl-11 pr-12 rounded-lg bg-input/60 border border-border text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 hover:border-foreground/20 disabled:opacity-60 transition-all";
   const currentLang = LANGS.find((l) => l.code === lang) ?? LANGS[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,7 +92,8 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="relative z-10 min-h-dvh w-full px-5 py-5 sm:px-8 sm:py-8 flex flex-col">
+    <MotionConfig reducedMotion="user">
+    <div className="relative z-10 min-h-dvh w-full px-5 py-4 sm:px-8 sm:py-6 flex flex-col">
       <header className="flex w-full max-w-6xl mx-auto items-center justify-between gap-3">
         <Link to="/" className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Flame className="h-5 w-5 text-primary" /> <span>Magma</span>
@@ -105,26 +106,26 @@ const AuthPage = () => {
       </header>
       <LanguagePickerSheet open={langOpen} current={lang} onClose={() => setLangOpen(false)} onPick={setLang} />
 
-      <main className="flex-1 flex items-center justify-center py-8 sm:py-12">
+      <main className="flex-1 flex items-center justify-center py-5 sm:py-8">
         <motion.div initial={{ opacity: 0, y: 40, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }} className="w-full max-w-md min-w-0">
-          <motion.div className="flex flex-col items-center mb-7" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.6 }}>
-            <motion.div className="w-20 h-20 rounded-2xl magma-gradient p-0.5 magma-glow mb-5 overflow-hidden relative"
+          <motion.div className="flex flex-col items-center mb-5 sm:mb-7" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.6 }}>
+            <motion.div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl magma-gradient p-0.5 magma-glow mb-3 sm:mb-5 overflow-hidden relative"
               animate={{ boxShadow: ["var(--auth-logo-glow)", "var(--auth-logo-glow-bright)", "var(--auth-logo-glow)"] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
               <div className="w-full h-full rounded-2xl bg-card flex items-center justify-center overflow-hidden">
-                <img src={magmaLogo} alt="Magma Chat Room" width={68} height={68} className="object-contain" />
+                <img src={magmaLogo} alt="Magma Chat Room" width={68} height={68} className="object-contain w-full h-full p-1" />
               </div>
               <motion.div className="absolute -inset-2 rounded-2xl -z-10 blur-sm" animate={{ rotate: 360 }}
                 transition={{ duration: 18, repeat: Infinity, ease: "linear" }} style={{ background: "var(--auth-logo-halo)" }} />
             </motion.div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-foreground text-center leading-tight">Magma Chat Room</h1>
-            <p className="text-muted-foreground mt-2 text-sm">{t("app.tagline")}</p>
+            <h1 className="text-2xl sm:text-4xl font-bold text-foreground text-center leading-tight">Magma Chat Room</h1>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-            className="glass-panel-strong rounded-2xl p-5 sm:p-7 border border-border">
-            <div className="flex rounded-lg bg-muted/60 p-1 mb-6 relative" role="tablist" aria-label={t("settings.account")}>
+            className="glass-panel-strong rounded-xl p-5 sm:p-7 border border-border relative overflow-hidden">
+            <div aria-hidden="true" className="absolute inset-x-8 top-0 h-px magma-gradient opacity-60" />
+            <div className="flex rounded-lg bg-muted/60 p-1 mb-5 relative" role="tablist" aria-label={t("settings.account")}>
               {(["login", "register"] as const).map(mode => (
                 <Button key={mode} id={`auth-tab-${mode}`} role="tab" aria-selected={tab === mode} aria-controls="auth-form"
                   type="button" variant="ghost" disabled={loading} onClick={() => { setTab(mode); setCapsLock(false); }}
@@ -149,6 +150,9 @@ const AuthPage = () => {
                     <UserIcon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input id="auth-username" type="text" placeholder={t("auth.username")} value={username} onChange={e => setUsername(e.target.value)}
                       required autoComplete="username" autoCapitalize="none" spellCheck={false} disabled={loading} className={fieldClass} />
+                    {username && <Button variant="ghost" size="icon" type="button" disabled={loading} aria-label={copy.clear} title={copy.clear}
+                      onClick={() => { setUsername(""); document.getElementById("auth-username")?.focus(); }}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground"><X size={16} /></Button>}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -158,7 +162,7 @@ const AuthPage = () => {
                     <input id="auth-password" type={showPwd ? "text" : "password"} placeholder={t("auth.password")} value={password} onChange={e => setPassword(e.target.value)}
                       onKeyUp={e => setCapsLock(e.getModifierState("CapsLock"))} onKeyDown={e => setCapsLock(e.getModifierState("CapsLock"))} onBlur={() => setCapsLock(false)}
                       required autoComplete={tab === "login" ? "current-password" : "new-password"} disabled={loading} className={fieldClass} />
-                    <Button variant="ghost" size="icon" type="button" onClick={() => setShowPwd(v => !v)} aria-label={showPwd ? copy.hide : copy.show} title={showPwd ? copy.hide : copy.show}
+                    <Button variant="ghost" size="icon" type="button" aria-pressed={showPwd} onClick={() => setShowPwd(v => !v)} aria-label={showPwd ? copy.hide : copy.show} title={showPwd ? copy.hide : copy.show}
                       className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:bg-muted hover:text-foreground">
                       {showPwd ? <EyeOff /> : <Eye />}
                     </Button>
@@ -172,10 +176,16 @@ const AuthPage = () => {
                       <div className="flex gap-1.5" role="meter" aria-label={copy.strength} aria-valuemin={0} aria-valuemax={4} aria-valuenow={score}>
                         {[1, 2, 3, 4].map(level => <div key={level} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${level <= score ? "bg-primary" : "bg-muted"}`} />)}
                       </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        {[copy.minimum, copy.mixed, copy.number].map((label, i) => <span key={label} className={`flex items-center gap-1 ${checks[i] ? "text-foreground" : ""}`}><Check size={12} className={checks[i] ? "text-primary" : "text-muted-foreground/40"} />{label}</span>)}
-                      </div>
-                      <Button type="button" variant="link" disabled={loading} onClick={generatePassword} className="h-auto p-0 py-1 text-xs"><WandSparkles />{copy.generate}</Button>
+                      <details className="group text-xs text-muted-foreground">
+                        <summary className="flex items-center justify-between min-h-9 cursor-pointer list-none rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          <span>{copy.passwordTips}</span><ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="grid gap-2 pb-3 pt-1">
+                          {[copy.minimum, copy.mixed, copy.number].map((label, i) => <span key={label} className={`flex items-center gap-2 ${checks[i] ? "text-foreground" : ""}`}><Check size={14} className={checks[i] ? "text-primary" : "text-muted-foreground/40"} />{label}</span>)}
+                          <p className="text-muted-foreground">{copy.optional}</p>
+                        </div>
+                      </details>
+                      <Button type="button" variant="outline" disabled={loading} onClick={generatePassword} className="w-full h-10 text-xs bg-input/30 border-border"><WandSparkles />{copy.generate}</Button>
                     </div>
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-2">
                       <label htmlFor="auth-confirm" className="text-sm font-medium">{t("auth.confirmPassword")}</label>
@@ -183,6 +193,7 @@ const AuthPage = () => {
                         <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <input id="auth-confirm" type={showPwd ? "text" : "password"} placeholder={t("auth.confirmPassword")} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
                           required autoComplete="new-password" disabled={loading} className={fieldClass} aria-invalid={confirmPassword.length > 0 && password !== confirmPassword} />
+                        {confirmPassword && password === confirmPassword && <Check size={17} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary" aria-hidden="true" />}
                       </div>
                       {confirmPassword && <p role="status" className={`text-xs ${password === confirmPassword ? "text-muted-foreground" : "text-destructive"}`}>{password === confirmPassword ? copy.match : t("auth.passwordMismatch")}</p>}
                     </motion.div>
@@ -199,19 +210,20 @@ const AuthPage = () => {
                 </MotionButton>
               </motion.form>
             </AnimatePresence>
-            <div className="mt-6 pt-5 border-t border-border flex flex-wrap justify-center items-center gap-x-1 text-sm text-muted-foreground">
+            <div className="mt-5 pt-4 border-t border-border flex flex-wrap justify-center items-center gap-x-1 text-sm text-muted-foreground">
               <span>{tab === "login" ? t("auth.noAccount") : t("auth.hasAccount")}</span>
               <Button variant="link" disabled={loading} onClick={() => { setTab(tab === "login" ? "register" : "login"); setCapsLock(false); }} className="h-auto px-1 py-1 font-semibold">
                 {tab === "login" ? t("auth.signupHere") : t("auth.loginHere")}
               </Button>
             </div>
           </motion.div>
-          <footer className="text-center text-xs text-muted-foreground mt-6">
-            <Link to="/terms" className="hover:text-foreground transition-colors">{copy.terms}</Link>
+          <footer className="text-center text-xs text-muted-foreground mt-4">
+            <Link to="/terms" className="inline-flex items-center gap-1.5 min-h-8 hover:text-foreground transition-colors"><Lock size={12} />{copy.terms}</Link>
           </footer>
         </motion.div>
       </main>
     </div>
+    </MotionConfig>
   );
 };
 
