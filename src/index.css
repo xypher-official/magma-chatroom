@@ -52,6 +52,9 @@
     --magma-ember: 0 85% 45%;
     --magma-surface: 0 0% 10%;
     --magma-glass: 0 0% 100% / 0.05;
+    --auth-logo-glow: 0 0 40px hsl(var(--magma-glow) / 0.35), 0 0 80px hsl(var(--magma-glow) / 0.15);
+    --auth-logo-glow-bright: 0 0 70px hsl(var(--magma-glow) / 0.55), 0 0 140px hsl(var(--magma-glow) / 0.25);
+    --auth-logo-halo: conic-gradient(from 0deg, transparent 0%, hsl(var(--magma-glow) / 0.15) 50%, transparent 100%);
   }
 }
 
