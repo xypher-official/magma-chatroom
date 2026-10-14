@@ -2,6 +2,7 @@ import type { Lang } from "./translations";
 
 const en = {
   welcome: "Welcome back", join: "Create your account", loginHint: "Sign in to Magma Chat Room.", registerHint: "Choose your username and password.",
+  passwordTips: "Password recommendations", clear: "Clear username", optional: "Recommendations, not requirements",
   show: "Show password", hide: "Hide password", generate: "Generate password", generated: "Password generated", caps: "Caps Lock is on",
   strength: "Password strength", weak: "Weak", fair: "Fair", strong: "Strong", excellent: "Excellent",
   minimum: "At least 6 characters", mixed: "Uppercase and lowercase", number: "Number or symbol", match: "Passwords match",
@@ -12,6 +13,7 @@ type AuthCopy = typeof en;
 export const AUTH_COPY: Record<Lang, AuthCopy> = {
   en,
   es: {
+    passwordTips: "Recomendaciones de contraseña", clear: "Borrar usuario", optional: "Recomendaciones, no requisitos",
     welcome: "Bienvenido de nuevo", join: "Crea tu cuenta", loginHint: "Accede a Magma Chat Room.", registerHint: "Elige tu usuario y contraseña.",
     show: "Mostrar contraseña", hide: "Ocultar contraseña", generate: "Generar contraseña", generated: "Contraseña generada", caps: "Bloq Mayús está activado",
     strength: "Seguridad de la contraseña", weak: "Débil", fair: "Aceptable", strong: "Fuerte", excellent: "Excelente",
@@ -19,6 +21,7 @@ export const AUTH_COPY: Record<Lang, AuthCopy> = {
     signingIn: "Iniciando sesión…", creating: "Creando cuenta…", language: "Idioma", terms: "Términos y condiciones", signIn: "Iniciar sesión", signUp: "Crear cuenta",
   },
   de: {
+    passwordTips: "Passwortempfehlungen", clear: "Benutzername löschen", optional: "Empfehlungen, keine Anforderungen",
     welcome: "Willkommen zurück", join: "Konto erstellen", loginHint: "Bei Magma Chat Room anmelden.", registerHint: "Benutzername und Passwort wählen.",
     show: "Passwort anzeigen", hide: "Passwort verbergen", generate: "Passwort generieren", generated: "Passwort generiert", caps: "Feststelltaste ist aktiv",
     strength: "Passwortstärke", weak: "Schwach", fair: "Mittel", strong: "Stark", excellent: "Sehr stark",
@@ -26,6 +29,7 @@ export const AUTH_COPY: Record<Lang, AuthCopy> = {
     signingIn: "Anmeldung…", creating: "Konto wird erstellt…", language: "Sprache", terms: "Nutzungsbedingungen", signIn: "Anmelden", signUp: "Konto erstellen",
   },
   fr: {
+    passwordTips: "Conseils pour le mot de passe", clear: "Effacer l’identifiant", optional: "Conseils, pas des exigences",
     welcome: "Bon retour", join: "Créez votre compte", loginHint: "Connectez-vous à Magma Chat Room.", registerHint: "Choisissez votre identifiant et mot de passe.",
     show: "Afficher le mot de passe", hide: "Masquer le mot de passe", generate: "Générer un mot de passe", generated: "Mot de passe généré", caps: "Verr. Maj est activé",
     strength: "Force du mot de passe", weak: "Faible", fair: "Moyen", strong: "Fort", excellent: "Excellent",
@@ -33,6 +37,7 @@ export const AUTH_COPY: Record<Lang, AuthCopy> = {
     signingIn: "Connexion…", creating: "Création du compte…", language: "Langue", terms: "Conditions générales", signIn: "Se connecter", signUp: "Créer un compte",
   },
   it: {
+    passwordTips: "Consigli per la password", clear: "Cancella nome utente", optional: "Consigli, non requisiti",
     welcome: "Bentornato", join: "Crea il tuo account", loginHint: "Accedi a Magma Chat Room.", registerHint: "Scegli nome utente e password.",
     show: "Mostra password", hide: "Nascondi password", generate: "Genera password", generated: "Password generata", caps: "Blocco maiuscole attivo",
     strength: "Sicurezza della password", weak: "Debole", fair: "Discreta", strong: "Forte", excellent: "Eccellente",
@@ -40,6 +45,7 @@ export const AUTH_COPY: Record<Lang, AuthCopy> = {
     signingIn: "Accesso…", creating: "Creazione account…", language: "Lingua", terms: "Termini e condizioni", signIn: "Accedi", signUp: "Crea account",
   },
   pt: {
+    passwordTips: "Recomendações de senha", clear: "Limpar usuário", optional: "Recomendações, não requisitos",
     welcome: "Bem-vindo de volta", join: "Crie sua conta", loginHint: "Entre no Magma Chat Room.", registerHint: "Escolha seu usuário e senha.",
     show: "Mostrar senha", hide: "Ocultar senha", generate: "Gerar senha", generated: "Senha gerada", caps: "Caps Lock está ativado",
     strength: "Força da senha", weak: "Fraca", fair: "Razoável", strong: "Forte", excellent: "Excelente",
