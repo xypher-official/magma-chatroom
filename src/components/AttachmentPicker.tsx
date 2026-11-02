@@ -90,9 +90,11 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
     {watch && (
       <WatchTogetherSetup myUserId={myUserId} conversationId={conversationId} groupId={groupId}
         onClose={() => setWatch(false)}
-        onCreated={(id, title) => {
+        onCreated={async (id, title) => {
           setWatch(false);
-          onSend(`🎬 Watch Together: ${title}`, `/watch/${id}`, "watch", title);
+          const { data: p } = await supabase.from("profiles").select("display_name").eq("user_id", myUserId).maybeSingle();
+          const name = (p as any)?.display_name || "Someone";
+          onSend(`🎬 ${name} wants to invite you to watch a video (${title}) together! Click here to watch it!`, `/watch/${id}`, "watch", title);
           onClose();
           window.open(`/watch/${id}`, "_self");
         }} />

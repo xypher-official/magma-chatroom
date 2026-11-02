@@ -321,7 +321,7 @@ const ChatWindow = ({
                   )}
                   {!isDeleted && msg.media_type === "watch" && msg.media_url && (
                     <a href={msg.media_url} className="flex items-center gap-2 mb-1 px-3 py-2.5 rounded-xl magma-gradient text-primary-foreground text-xs font-semibold">
-                      ▶️ Unirse al Watch Together
+                      ▶️ Click here to watch it!
                     </a>
                   )}
                   {!isDeleted && msg.media_url && msg.media_type === "file" && (
