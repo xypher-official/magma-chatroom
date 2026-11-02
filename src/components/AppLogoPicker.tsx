@@ -7,7 +7,12 @@ import originalLogo from "@/assets/app-logos/magma-original.png.asset.json";
 import maxLogo from "@/assets/app-logos/magma-messages.webp.asset.json";
 import rainbowLogo from "@/assets/app-logos/magma-rainbow.webp.asset.json";
 import messagesLogo from "@/assets/app-logos/magma-max.png.asset.json";
+import winterLogo from "@/assets/app-logos/magma-winter.png.asset.json";
 import plusLogo from "@/assets/app-logos/magma-plus.png.asset.json";
+
+// Winter edition: only logo available until January 7, 2027 (inclusive, local time).
+export const WINTER_LOGO_UNTIL = new Date(2027, 0, 8);
+export const isWinterLogoActive = (now = new Date()) => now < WINTER_LOGO_UNTIL;
 
 const STORAGE_KEY = "magma.app-logo";
 
@@ -36,6 +41,18 @@ const AppLogoPicker = () => {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, selectedId);
   }, [selectedId]);
+
+  if (isWinterLogoActive()) {
+    return (
+      <motion.img
+        initial={{ opacity: 0, scale: 0.82, rotate: -5 }}
+        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+        src={winterLogo.url}
+        alt="Logo Magma Chat Room edición invierno"
+        className="h-10 w-10 shrink-0 rounded-lg border border-border object-cover shadow-sm"
+      />
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
