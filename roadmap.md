@@ -9,6 +9,6 @@
 - [ ] Test public inference, authenticated assistant flow, and error handling.
 
 # Christmas and Watch Together
-- [ ] Send a clickable Watch Together invitation containing the inviter and video title in private and group chats.
+- [x] Send a clickable Watch Together invitation containing the inviter and video title in private and group chats.
 - [ ] Add a Christmas edition using the requested logo and new Plus personalization advantages.
 - [ ] Verify invitation links, festive controls, and membership restrictions.
