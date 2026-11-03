@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Send, Sparkles, Bot, User } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { requestSpaceAssistant } from "@/lib/spaceAssistant";
+import { useSpaceConsent } from "@/components/SpacePrivacyDialog";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -15,6 +16,8 @@ const SUGGESTIONS = [
 ];
 
 const AdminAIConsole = () => {
+  const consent = useSpaceConsent();
+  const sending = useRef(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,28 +27,28 @@ const AdminAIConsole = () => {
 
   const send = async (text: string) => {
     const t = text.trim();
-    if (!t || loading) return;
+    if (!t || sending.current) return;
+    sending.current = true;
+    if (!(await consent.request())) { sending.current = false; return; }
     const next = [...messages, { role: "user" as const, content: t }];
     setMessages(next);
     setInput("");
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-ai", {
-        body: { messages: next },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const data = await requestSpaceAssistant("admin-ai", next);
       setMessages([...next, { role: "assistant", content: data.reply ?? "(sin respuesta)" }]);
     } catch (e: any) {
       toast.error(e.message ?? "Error de IA");
       setMessages([...next, { role: "assistant", content: `⚠️ ${e.message ?? "Error"}` }]);
     } finally {
       setLoading(false);
+      sending.current = false;
     }
   };
 
   return (
-    <div className="flex flex-col h-[60vh]">
+    <div className="flex flex-col h-[60vh] min-w-0">
+      {consent.dialog}
       <div className="flex items-center gap-2 mb-3">
         <motion.div
           animate={{ rotate: [0, 360] }}
@@ -54,7 +57,7 @@ const AdminAIConsole = () => {
           <Sparkles size={18} className="text-amber-400" />
         </motion.div>
         <h3 className="text-sm font-semibold text-foreground">Consola MAGMA-AI</h3>
-        <span className="text-xs text-muted-foreground">— Da órdenes en lenguaje natural</span>
+        <span className="text-xs text-muted-foreground">· MiniCPM-V 4.7</span>
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-magma rounded-xl border border-border bg-background/60 p-3 space-y-3">
