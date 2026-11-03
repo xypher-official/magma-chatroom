@@ -37,7 +37,7 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
   const camInput = useRef<HTMLInputElement>(null);
   const anyInput = useRef<HTMLInputElement>(null);
 
-  const prefix = `chat/${myUserId}`;
+  const prefix = `${myUserId}/chat`;
 
   const loadRecent = async () => {
     setLoading(true);

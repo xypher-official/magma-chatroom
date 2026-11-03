@@ -4,3 +4,4 @@
 - Both chat assistants use the shared public MiniCPM Gradio queue adapter through authenticated edge functions; keep API keys out of this flow and preserve explicit third-party privacy consent.
 - Public-Space admin actions are proposals only: validate them against the declared tool schema, authorize the admin server-side, and redact tool results before external inference.
 - Assistant intensive-use consumption belongs in the authenticated inference function, not the browser, so direct requests cannot bypass the existing pause.
+- Shared chat attachments use a user-ID-first storage folder, and the inference function only fetches media inside the authenticated user's folder, matching storage ownership policies.

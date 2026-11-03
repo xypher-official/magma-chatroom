@@ -82,7 +82,7 @@ export function isOwnedMediaUrl(url: string, backendUrl: string, userId: string)
   try {
     const parsed = new URL(url);
     return parsed.origin === new URL(backendUrl).origin && !parsed.search && !parsed.hash &&
-      parsed.pathname.startsWith(`/storage/v1/object/public/social-media/chat/${userId}/`) &&
+      parsed.pathname.startsWith(`/storage/v1/object/public/social-media/${userId}/chat/`) &&
       !decodeURIComponent(parsed.pathname).includes("..");
   } catch { return false; }
 }

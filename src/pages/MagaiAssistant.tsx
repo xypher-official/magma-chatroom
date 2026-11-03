@@ -136,7 +136,9 @@ const MagaiAssistant = () => {
       if (typeof data.used === "number") setUsed(data.used);
       let finalContent = data.reply;
       if (/```magma-action/.test(finalContent)) {
-        if (plus.subscribed) {
+        // Membership may finish loading while the first question/consent is open.
+        // Check the current entitlement instead of the send handler's old snapshot.
+        if (await plus.refresh()) {
           const results = await runActions(finalContent);
           finalContent = `${stripActions(finalContent)}\n\n${results.join("\n")}`;
           results.forEach((r) => toast(r));

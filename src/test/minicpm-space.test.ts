@@ -32,7 +32,7 @@ describe("MiniCPM public Space protocol", () => {
 
   it("accepts only the authenticated user's own stored media", () => {
     const base = "https://backend.example";
-    const path = "/storage/v1/object/public/social-media/chat/user-a/photo.png";
+    const path = "/storage/v1/object/public/social-media/user-a/chat/photo.png";
     expect(isOwnedMediaUrl(base + path, base, "user-a")).toBe(true);
     expect(isOwnedMediaUrl(base + path, base, "user-b")).toBe(false);
     expect(isOwnedMediaUrl("https://untrusted.example" + path, base, "user-a")).toBe(false);
