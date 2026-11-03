@@ -4,11 +4,11 @@
 - [x] Verify interactions and layout on phone, tablet, and desktop (393, 820, and 1440 px); existing account sign-in was not changed or retested.
 
 # Hugging Face Space AI
-- [ ] Complete both assistants on the public MiniCPM Space; remove key/provider setup and retain truthful queue/unavailable errors.
-- [ ] Preserve conversation history, Plus actions, admin authorization, and intensive-use protections.
-- [ ] Test public inference, authenticated assistant flow, and error handling.
+- [x] Complete both assistants on the public MiniCPM Space; remove key/provider setup and retain truthful queue/unavailable errors.
+- [x] Preserve conversation history, Plus actions, admin authorization, and intensive-use protections.
+- [x] Test real public and authenticated inference, persisted history, a Plus profile action, admin statistics, image analysis, unavailable/auth errors, and mobile/tablet layout.
 
-# Christmas and Watch Together
+# Earlier Christmas and Watch Together backlog (outside this AI request)
 - [x] Send a clickable Watch Together invitation containing the inviter and video title in private and group chats.
 - [ ] Add a Christmas edition using the requested logo and new Plus personalization advantages.
 - [ ] Verify invitation links, festive controls, and membership restrictions.
