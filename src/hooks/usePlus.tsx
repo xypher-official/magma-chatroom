@@ -10,21 +10,24 @@ export const usePlus = () => {
 
   const refresh = useCallback(async () => {
     const { data: s } = await supabase.auth.getSession();
-    if (!s.session) { setSubscribed(false); setLoading(false); return; }
+    if (!s.session) { setSubscribed(false); setLoading(false); return false; }
     const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: s.session.user.id, _role: "admin" });
     if (isAdmin) {
       cache = { subscribed: true, end: null };
-      setSubscribed(true); setEnd(null); setLoading(false); return;
+      setSubscribed(true); setEnd(null); setLoading(false); return true;
     }
     const { data } = await supabase.functions.invoke("check-subscription");
     cache = { subscribed: !!data?.subscribed, end: data?.subscription_end ?? null };
     setSubscribed(cache.subscribed); setEnd(cache.end); setLoading(false);
+    return cache.subscribed;
   }, []);
 
   useEffect(() => {
     refresh();
     const iv = setInterval(refresh, 60_000);
-    const { data: sub } = supabase.auth.onAuthStateChange(() => refresh());
+    // Auth callbacks run while the client's auth lock is held. Defer requests
+    // that acquire that same lock, otherwise inference/sign-in can deadlock.
+    const { data: sub } = supabase.auth.onAuthStateChange(() => { setTimeout(() => { void refresh(); }, 0); });
     return () => { clearInterval(iv); sub.subscription.unsubscribe(); };
   }, [refresh]);
 
