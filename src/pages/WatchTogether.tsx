@@ -186,7 +186,7 @@ const WatchTogether = () => {
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(s.source, { ADD_TAGS: ["iframe"], ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "src"] }) }} />
           ) : (
             <video ref={videoRef} src={s.source} playsInline muted={muted} controls={isHost}
-              onPlay={() => isHost && !s.is_playing && push({ is_playing: true })}
+              onPlay={(e) => { if (isHost && guestsAccepted === 0) { e.currentTarget.pause(); toast("Espera a que la otra persona acepte ⏳"); return; } isHost && !s.is_playing && push({ is_playing: true }); }}
               onPause={() => isHost && s.is_playing && push({ is_playing: false })}
               onSeeked={() => isHost && push({})}
               className="absolute inset-0 w-full h-full object-contain bg-background" />
