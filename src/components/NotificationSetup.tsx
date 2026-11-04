@@ -5,6 +5,8 @@ import {
   Smartphone, MonitorSmartphone, CheckCircle2, Clock, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { enablePush } from "@/lib/push";
 
 const ANDROID_APP_URL =
   "https://apps-market.lovable.app/app/5d4623c7-cf66-45ea-a64c-e034070c6554";
@@ -65,7 +67,10 @@ const NotificationSetup = () => {
     }
     setBusy(true);
     try {
-      const result = await Notification.requestPermission();
+      const { data: { user } } = await supabase.auth.getUser();
+      const status = user ? await enablePush(user.id, true).catch(() => "unsupported" as const) : "unsupported";
+      if (status === "open-in-new-tab") toast("Abre la app directamente (no dentro del editor) para activarlas");
+      const result = typeof Notification !== "undefined" ? Notification.permission : "denied";
       setPermission(result);
       if (result === "granted") {
         toast.success("Notificaciones activadas");

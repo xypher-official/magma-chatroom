@@ -1,3 +1,4 @@
+import { sendPush } from "@/lib/push";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus, Maximize2, Paperclip, FileText } from "lucide-react";
@@ -99,11 +100,12 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
     const content = contentOverride ?? input.trim();
     if (!content && !mediaUrl) return;
     if (!canWrite) { toast.error(t("group.cantWrite")); return; }
-    const { error } = await supabase.from("group_messages").insert({
+    const { data: sent, error } = await supabase.from("group_messages").insert({
       group_id: group.id, sender_id: myUserId, content,
       media_url: mediaUrl ?? null, media_type: mediaType ?? null,
       channel_id: activeChannel,
-    } as any);
+    } as any).select("id").single();
+    if (!error && sent) sendPush("group", (sent as any).id);
     if (error) toast.error(error.message); else {
       await supabase.from("groups").update({ last_message_at: new Date().toISOString() }).eq("id", group.id);
       if (!contentOverride) setInput("");

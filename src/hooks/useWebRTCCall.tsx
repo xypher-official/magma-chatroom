@@ -1,3 +1,4 @@
+import { sendPush } from "@/lib/push";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -300,6 +301,7 @@ export const useWebRTCCall = (myUserId: string | undefined) => {
       }).select("id").single();
       if (error || !callRow) throw error ?? new Error("Could not create call");
       callIdRef.current = callRow.id;
+      sendPush("call", callRow.id);
       isCallerRef.current = true;
       otherUserRef.current = calleeId;
       setActive({ id: callRow.id, callerId: myUserId, calleeId, callType });

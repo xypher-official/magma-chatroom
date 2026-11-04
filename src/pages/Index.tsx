@@ -26,6 +26,7 @@ import GlobalAnnouncementOverlay from "@/components/GlobalAnnouncementOverlay";
 import IosInstallTip from "@/components/IosInstallTip";
 import { useWebRTCCall } from "@/hooks/useWebRTCCall";
 import { useNotifications } from "@/hooks/useNotifications";
+import { enablePush, sendPush } from "@/lib/push";
 import { toast } from "sonner";
 
 interface Profile {
@@ -68,6 +69,20 @@ const Index = () => {
   const call = useWebRTCCall(session?.user.id);
 
   useNotifications(session?.user.id, isAdmin, activeConv, profiles as any);
+
+  // Register this device for background push once permission exists.
+  useEffect(() => {
+    if (session?.user.id) enablePush(session.user.id).catch(() => {});
+  }, [session?.user.id]);
+
+  // Open the chat/group a tapped notification points to.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const c = q.get("conv"), g = q.get("group");
+    if (c) setActiveConv(c);
+    if (g) setActiveGroup(g);
+    if (c || g || q.get("call")) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
@@ -205,8 +220,9 @@ const Index = () => {
 
   const handleSendMessage = useCallback(async (text: string, mediaUrl?: string | null, mediaType?: string | null) => {
     if (!activeConv || !session) return;
-    const { error } = await supabase.from("messages")
-      .insert({ conversation_id: activeConv, sender_id: session.user.id, content: text, media_url: mediaUrl ?? null, media_type: mediaType ?? null });
+    const { data: sent, error } = await supabase.from("messages")
+      .insert({ conversation_id: activeConv, sender_id: session.user.id, content: text, media_url: mediaUrl ?? null, media_type: mediaType ?? null }).select("id").single();
+    if (!error && sent) sendPush("dm", sent.id);
     if (error) {
       toast.error(error.message.includes("conversation_has_official") ? "Read-only channel 🔒" : error.message);
     } else {
