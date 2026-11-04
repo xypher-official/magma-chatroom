@@ -47,6 +47,20 @@ const WatchTogether = () => {
   const sRef = useRef<Session | null>(null);
   sRef.current = s;
   const isHost = !!s && s.host_id === me;
+  const [accepted, setAccepted] = useState(false);
+  const [guestsAccepted, setGuestsAccepted] = useState(0);
+  const roomRef = useRef<any>(null);
+  useEffect(() => {
+    if (!me || !sessionId) return;
+    const room = supabase.channel(`watch-room-${sessionId}`, { config: { presence: { key: me } } });
+    room.on("presence", { event: "sync" }, () => {
+      const st = room.presenceState() as Record<string, any[]>;
+      setGuestsAccepted(Object.entries(st).filter(([k, v]) => k !== sRef.current?.host_id && v.some((x) => x.accepted)).length);
+    }).subscribe((status) => { if (status === "SUBSCRIBED") room.track({ accepted: false }); });
+    roomRef.current = room;
+    return () => { supabase.removeChannel(room); };
+  }, [me, sessionId]);
+  const acceptInvite = () => { setAccepted(true); roomRef.current?.track({ accepted: true }); toast.success("Invitación aceptada 🎬"); };
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null));
@@ -145,7 +159,7 @@ const WatchTogether = () => {
 
   const a = adapter.current;
   const seekBy = (d: number) => { if (!a) return; a.seek(Math.max(0, a.get() + d)); push({}); };
-  const togglePlay = () => { if (!a) return; s.is_playing ? a.pause() : a.play(); push({ is_playing: !s.is_playing }); };
+  const togglePlay = () => { if (!a) return; if (!s.is_playing && guestsAccepted === 0) { toast("Espera a que la otra persona acepte la invitación ⏳"); return; } s.is_playing ? a.pause() : a.play(); push({ is_playing: !s.is_playing }); };
 
   return (
     <main className="min-h-dvh bg-background flex flex-col">
@@ -172,10 +186,24 @@ const WatchTogether = () => {
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(s.source, { ADD_TAGS: ["iframe"], ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "src"] }) }} />
           ) : (
             <video ref={videoRef} src={s.source} playsInline muted={muted} controls={isHost}
-              onPlay={() => isHost && !s.is_playing && push({ is_playing: true })}
+              onPlay={(e) => { if (isHost && guestsAccepted === 0) { e.currentTarget.pause(); toast("Espera a que la otra persona acepte ⏳"); return; } isHost && !s.is_playing && push({ is_playing: true }); }}
               onPause={() => isHost && s.is_playing && push({ is_playing: false })}
               onSeeked={() => isHost && push({})}
               className="absolute inset-0 w-full h-full object-contain bg-background" />
+          )}
+          {!isHost && s.active && !accepted && (
+            <div className="absolute inset-0 z-20 grid place-items-center bg-background/90 backdrop-blur p-4 text-center">
+              <div className="space-y-3">
+                <p className="text-sm text-foreground">Te invitaron a ver <b>{s.title}</b> juntos 🍿</p>
+                <div className="flex justify-center gap-2">
+                  <button onClick={acceptInvite} className="rounded-xl magma-gradient px-4 py-2 text-sm text-primary-foreground">Aceptar</button>
+                  <button onClick={() => nav(-1)} className="rounded-xl glass-panel-strong px-4 py-2 text-sm text-foreground">Rechazar</button>
+                </div>
+              </div>
+            </div>
+          )}
+          {isHost && s.active && guestsAccepted === 0 && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 rounded-full glass-panel-strong px-3 py-1 text-xs text-foreground flex items-center gap-1.5"><Loader2 size={12} className="animate-spin" /> Esperando que acepten la invitación…</div>
           )}
           {!isHost && s.active && <div className="absolute inset-0 z-10" onClick={() => toast("Solo el anfitrión puede controlar el video 🔒")} />}
         </div>
