@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, Image as ImageIcon, FileText, Music, Video, X, Loader2, MoreHorizontal, Upload } from "lucide-react";
+import { Camera, Image as ImageIcon, FileText, Music, Video, X, Loader2, MoreHorizontal, Upload, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -71,6 +71,14 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
       onClose();
     } catch (e: any) { toast.error(e.message ?? "Error al subir"); }
     finally { setBusy(false); }
+  };
+
+  const removeItem = async (r: Recent) => {
+    if (!confirm(`¿Eliminar "${r.name}"? Ya no aparecerá en tu lista.`)) return;
+    const { error } = await supabase.storage.from(BUCKET).remove([`${prefix}/${r.name}`]);
+    if (error) { toast.error("No se pudo eliminar"); return; }
+    setRecent((list) => list.filter((x) => x.name !== r.name));
+    toast.success("Eliminado 🗑️");
   };
 
   const pickFiles = async (files: FileList | null) => {
@@ -157,11 +165,17 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
             ) : tab === "photos" ? (
               <div className="grid grid-cols-3 gap-2">
                 {list.map((p) => (
-                  <motion.button key={p.url} whileTap={{ scale: 0.95 }}
-                    onClick={() => { onSend("🖼️", p.url, "image", p.name); onClose(); }}
-                    className="relative aspect-square rounded-xl overflow-hidden border border-border">
-                    <img src={p.url} alt={p.name} loading="lazy" className="w-full h-full object-cover" />
-                  </motion.button>
+                  <div key={p.url} className="relative aspect-square">
+                    <motion.button whileTap={{ scale: 0.95 }}
+                      onClick={() => { onSend("🖼️", p.url, "image", p.name); onClose(); }}
+                      className="w-full h-full rounded-xl overflow-hidden border border-border">
+                      <img src={p.url} alt={p.name} loading="lazy" className="w-full h-full object-cover" />
+                    </motion.button>
+                    <button onClick={() => removeItem(p)} title="Eliminar" aria-label="Eliminar foto"
+                      className="absolute top-1 right-1 p-1.5 rounded-full bg-background/80 backdrop-blur text-destructive">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -171,12 +185,18 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
                   const isAud = /\.(mp3|wav|ogg|m4a|webm)$/i.test(f.name);
                   const Icon = isVid ? Video : isAud ? Music : FileText;
                   return (
-                    <button key={f.url}
-                      onClick={() => { onSend(`📄 ${f.name}`, f.url, isVid ? "video" : isAud ? "audio" : "file", f.name); onClose(); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl glass-panel-strong text-left active:scale-[0.98] transition-transform">
-                      <Icon size={18} className="text-primary shrink-0" />
-                      <span className="text-xs text-foreground truncate">{f.name}</span>
-                    </button>
+                    <div key={f.url} className="flex items-center gap-2">
+                      <button
+                        onClick={() => { onSend(`📄 ${f.name}`, f.url, isVid ? "video" : isAud ? "audio" : "file", f.name); onClose(); }}
+                        className="flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 rounded-xl glass-panel-strong text-left active:scale-[0.98] transition-transform">
+                        <Icon size={18} className="text-primary shrink-0" />
+                        <span className="text-xs text-foreground truncate">{f.name}</span>
+                      </button>
+                      <button onClick={() => removeItem(f)} title="Eliminar" aria-label="Eliminar archivo"
+                        className="p-2.5 rounded-xl hover:bg-muted text-destructive shrink-0">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
