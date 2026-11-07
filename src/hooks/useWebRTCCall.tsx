@@ -24,7 +24,7 @@ const FALLBACK_ICE: RTCIceServer[] = [
 ];
 
 let iceCache: { servers: RTCIceServer[]; at: number } | null = null;
-const getIceServers = async (): Promise<RTCIceServer[]> => {
+export const getIceServers = async (): Promise<RTCIceServer[]> => {
   if (iceCache && Date.now() - iceCache.at < 30 * 60_000) return iceCache.servers;
   try {
     const { data } = await supabase.functions.invoke("turn-credentials");

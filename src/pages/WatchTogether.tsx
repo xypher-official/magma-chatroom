@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { ArrowLeft, Crown, Lock, Loader2, Play, Pause, Settings2, Power, Volume2, VolumeX, RotateCcw, RotateCw, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,7 +47,9 @@ const WatchTogether = () => {
   const sRef = useRef<Session | null>(null);
   sRef.current = s;
   const isHost = !!s && s.host_id === me;
-  const [accepted, setAccepted] = useState(false);
+  const [params] = useSearchParams();
+  const preAccepted = params.get("accepted") === "1";
+  const [accepted, setAccepted] = useState(preAccepted);
   const [guestsAccepted, setGuestsAccepted] = useState(0);
   const roomRef = useRef<any>(null);
   useEffect(() => {
@@ -56,10 +58,10 @@ const WatchTogether = () => {
     room.on("presence", { event: "sync" }, () => {
       const st = room.presenceState() as Record<string, any[]>;
       setGuestsAccepted(Object.entries(st).filter(([k, v]) => k !== sRef.current?.host_id && v.some((x) => x.accepted)).length);
-    }).subscribe((status) => { if (status === "SUBSCRIBED") room.track({ accepted: false }); });
+    }).subscribe((status) => { if (status === "SUBSCRIBED") room.track({ accepted: preAccepted }); });
     roomRef.current = room;
     return () => { supabase.removeChannel(room); };
-  }, [me, sessionId]);
+  }, [me, sessionId, preAccepted]);
   const acceptInvite = () => { setAccepted(true); roomRef.current?.track({ accepted: true }); toast.success("Invitación aceptada 🎬"); };
 
   useEffect(() => {

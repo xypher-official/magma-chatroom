@@ -12,7 +12,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   myUserId: string;
-  onSend: (text: string, url: string, kind: SentKind, name: string) => void;
+  onSend: (text: string, url: string, kind: SentKind, name: string) => void | Promise<void>;
   conversationId?: string | null;
   groupId?: string | null;
 }
@@ -102,9 +102,9 @@ const AttachmentPicker = ({ open, onClose, myUserId, onSend, conversationId, gro
           setWatch(false);
           const { data: p } = await supabase.from("profiles").select("display_name").eq("user_id", myUserId).maybeSingle();
           const name = (p as any)?.display_name || "Someone";
-          onSend(`🎬 ${name} wants to invite you to watch a video (${title}) together! Click here to watch it!`, `/watch/${id}`, "watch", title);
+          await onSend(`🎬 ${name} is sharing a video, want to join?\n“${title}”`, `/watch/${id}`, "watch", title);
           onClose();
-          window.open(`/watch/${id}`, "_self");
+          toast.success("Invitación enviada 🎬");
         }} />
     )}
     <AnimatePresence>
