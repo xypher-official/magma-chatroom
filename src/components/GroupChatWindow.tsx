@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus, Maximize2, Paperclip, FileText } from "lucide-react";
 import AttachmentPicker from "./AttachmentPicker";
+import WatchInviteCard from "./WatchInviteCard";
 import { useMyWallpaper } from "@/hooks/useMyWallpaper";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -274,9 +275,7 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
                     <video src={msg.media_url} controls className="rounded-xl mb-1 max-h-72 w-full" />
                   )}
                   {!isDeleted && msg.media_type === "watch" && msg.media_url && (
-                    <a href={msg.media_url} className="flex items-center gap-2 mb-1 px-3 py-2.5 rounded-xl magma-gradient text-primary-foreground text-xs font-semibold">
-                      ▶️ Click here to watch it!
-                    </a>
+                    <WatchInviteCard url={msg.media_url} isOwn={isOwn} />
                   )}
                   {!isDeleted && msg.media_url && msg.media_type === "file" && (
                     <a href={msg.media_url} target="_blank" rel="noreferrer"

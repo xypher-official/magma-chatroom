@@ -12,7 +12,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   myUserId: string;
-  onSend: (text: string, url: string, kind: SentKind, name: string) => void;
+  onSend: (text: string, url: string, kind: SentKind, name: string) => void | Promise<void>;
   conversationId?: string | null;
   groupId?: string | null;
 }

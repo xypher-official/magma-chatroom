@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Smile, Phone, MoreVertical, ArrowLeft, Lock, Sparkles, Image as ImageIcon, X, MapPin, Map as MapIcon, Trash2, Ban, ShieldOff, Pencil, Check, Eraser, Maximize2, Paperclip, FileText, Plus } from "lucide-react";
 import ExpandedComposer from "./ExpandedComposer";
 import AttachmentPicker from "./AttachmentPicker";
+import WatchInviteCard from "./WatchInviteCard";
 import Badges from "./Badges";
 import { useI18n } from "@/hooks/useI18n";
 import { useMyWallpaper } from "@/hooks/useMyWallpaper";
@@ -320,9 +321,7 @@ const ChatWindow = ({
                     <video src={msg.media_url} controls className="rounded-xl mb-1 max-h-72 w-full" />
                   )}
                   {!isDeleted && msg.media_type === "watch" && msg.media_url && (
-                    <a href={msg.media_url} className="flex items-center gap-2 mb-1 px-3 py-2.5 rounded-xl magma-gradient text-primary-foreground text-xs font-semibold">
-                      ▶️ Click here to watch it!
-                    </a>
+                    <WatchInviteCard url={msg.media_url} isOwn={isOwn} />
                   )}
                   {!isDeleted && msg.media_url && msg.media_type === "file" && (
                     <a href={msg.media_url} target="_blank" rel="noreferrer"
