@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, ArrowLeft, Users, Settings as Cog, Sparkles, Image as ImageIcon, X, Lock, Smile, Pencil, Trash2, Check, Hash, Plus, Maximize2, Paperclip, FileText } from "lucide-react";
 import AttachmentPicker from "./AttachmentPicker";
 import WatchInviteCard from "./WatchInviteCard";
+import GroupCallOverlay from "./GroupCallOverlay";
+import { useGroupCall, GROUP_CALL_MAX } from "@/hooks/useGroupCall";
+import { Phone, Video as VideoIcon } from "lucide-react";
 import { useMyWallpaper } from "@/hooks/useMyWallpaper";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -55,6 +58,11 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
   const [aiBusy, setAiBusy] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
+  const gcall = useGroupCall(group.id, myUserId);
+  const startGroupCall = async (withVideo: boolean) => {
+    const started = await gcall.join(withVideo);
+    if (started) await send(null, null, `📞 ${profiles[myUserId]?.display_name ?? "Someone"} started a group ${withVideo ? "video " : ""}call`);
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -224,6 +232,10 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
             </p>
           </div>
         </button>
+        <button onClick={() => startGroupCall(false)} title="Llamada grupal" disabled={gcall.joined}
+          className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><Phone size={18} /></button>
+        <button onClick={() => startGroupCall(true)} title="Videollamada grupal" disabled={gcall.joined}
+          className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors"><VideoIcon size={18} /></button>
         {(isAdmin || myRole === "owner" || myRole === "moderator" || myRole === "member") && (
           <button onClick={onOpenManage} title={t("group.manage")}
             className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors">
@@ -232,6 +244,18 @@ const GroupChatWindow = ({ group, myUserId, isAdmin, profiles, onBack, onOpenMan
         )}
       </motion.div>
 
+      {gcall.participants.length > 0 && !gcall.joined && (
+        <button onClick={() => gcall.join(true)}
+          className="mx-3 mt-2 flex items-center gap-2 rounded-xl magma-gradient px-3 py-2 text-xs font-semibold text-primary-foreground">
+          <Phone size={14} /> Llamada grupal activa ({gcall.participants.length}/{GROUP_CALL_MAX}) — Toca para unirte
+        </button>
+      )}
+      {gcall.joined && (
+        <GroupCallOverlay title={group.name} me={myUserId}
+          names={Object.fromEntries(Object.values(profiles).map((x) => [x.user_id, x.display_name]))}
+          localStream={gcall.localStream} peers={gcall.peers} video={gcall.video} muted={gcall.muted} cameraOff={gcall.cameraOff}
+          onMute={gcall.toggleMute} onCamera={gcall.toggleCamera} onFlip={gcall.flipCamera} onLeave={gcall.leave} />
+      )}
       <div className={`flex-1 overflow-y-auto scrollbar-magma p-4 space-y-3 ${wallStyle ? "" : "ember-bg"}`} style={wallStyle}>
         <AnimatePresence initial={false}>
           {visibleMessages.map((msg) => {
