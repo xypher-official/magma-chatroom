@@ -97,7 +97,7 @@ const TranslatedText = ({ text, isOwn }: { text: string; isOwn: boolean }) => {
 
 const ChatWindow = ({
   contactName, contactAvatar, contactAvatarUrl, contactOnline,
-  contactIsVerified, contactIsOfficial, contactUserId,
+  contactIsVerified, contactIsOfficial, contactUserId, conversationId,
   messages, myUserId, profiles, readOnly, canDeleteMessages,
   onSendMessage, onBack, onStartCall,
 }: ChatWindowProps) => {
