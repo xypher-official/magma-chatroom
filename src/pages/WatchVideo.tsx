@@ -67,15 +67,17 @@ const WatchVideo = () => {
   }, []);
 
   const loadCounts = async (v: VideoRow, uid?: string) => {
-    const [{ data: l }, { data: d }, { data: subs }] = await Promise.all([
-      (supabase as any).from("video_likes").select("user_id").eq("video_id", v.id),
-      (supabase as any).from("video_dislikes").select("user_id").eq("video_id", v.id),
-      (supabase as any).from("subscriptions").select("subscriber_id").eq("channel_id", v.author_id),
+    const [{ data: c }, { data: l }, { data: d }, { data: subs }] = await Promise.all([
+      (supabase as any).rpc("video_engagement_counts", { _video: v.id }),
+      uid ? (supabase as any).from("video_likes").select("user_id").eq("video_id", v.id).eq("user_id", uid) : Promise.resolve({ data: [] }),
+      uid ? (supabase as any).from("video_dislikes").select("user_id").eq("video_id", v.id).eq("user_id", uid) : Promise.resolve({ data: [] }),
+      uid ? (supabase as any).from("subscriptions").select("subscriber_id").eq("channel_id", v.author_id).eq("subscriber_id", uid) : Promise.resolve({ data: [] }),
     ]);
-    setLikes((l ?? []).length); setDislikes((d ?? []).length); setSubCount((subs ?? []).length);
-    setLiked(!!uid && (l ?? []).some((r: any) => r.user_id === uid));
-    setDisliked(!!uid && (d ?? []).some((r: any) => r.user_id === uid));
-    setSubscribed(!!uid && (subs ?? []).some((r: any) => r.subscriber_id === uid));
+    const row = Array.isArray(c) ? c[0] : c;
+    setLikes(Number(row?.likes ?? 0)); setDislikes(Number(row?.dislikes ?? 0)); setSubCount(Number(row?.subscribers ?? 0));
+    setLiked((l ?? []).length > 0);
+    setDisliked((d ?? []).length > 0);
+    setSubscribed((subs ?? []).length > 0);
   };
 
   useEffect(() => {
