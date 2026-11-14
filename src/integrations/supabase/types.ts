@@ -1660,6 +1660,14 @@ export type Database = {
       magai_consume: { Args: { _cost: number }; Returns: number }
       magai_used_today: { Args: never; Returns: number }
       process_scheduled_messages: { Args: never; Returns: number }
+      video_engagement_counts: {
+        Args: { _video: string }
+        Returns: {
+          dislikes: number
+          likes: number
+          subscribers: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user"
