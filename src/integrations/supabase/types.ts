@@ -1628,6 +1628,13 @@ export type Database = {
         Args: { _group: string; _user: string }
         Returns: Database["public"]["Enums"]["group_role"]
       }
+      get_my_email: {
+        Args: never
+        Returns: {
+          email: string
+          email_verified_at: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
