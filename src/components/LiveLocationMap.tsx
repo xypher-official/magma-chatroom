@@ -80,15 +80,26 @@ const LiveLocationMap = ({ open, onClose, myUserId, conversationId, groupId, con
     return () => { supabase.removeChannel(ch); clearInterval(iv); };
   }, [open, conversationId, groupId]);
 
-  const points = shares.filter((s) => s.last).map((s) => ({
+  const [myPos, setMyPos] = useState<{ lat: number; lng: number; acc: number } | null>(null);
+  useEffect(() => {
+    if (!open || !navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (p) => setMyPos({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }),
+      () => {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+    return () => navigator.geolocation.clearWatch(id);
+  }, [open]);
+
+  const remotePoints = shares.filter((s) => s.last).map((s) => ({
     id: s.id, uid: s.user_id, lat: s.last!.lat, lng: s.last!.lng, acc: s.last!.accuracy,
     isMe: s.user_id === myUserId,
   }));
+  const points = remotePoints.some((p) => p.isMe) || !myPos ? remotePoints
+    : [...remotePoints, { id: "me-local", uid: myUserId, lat: myPos.lat, lng: myPos.lng, acc: myPos.acc, isMe: true }];
 
   // Compute initial center
   const center: [number, number] = points.length
     ? [points.reduce((a, p) => a + p.lat, 0) / points.length, points.reduce((a, p) => a + p.lng, 0) / points.length]
-    : [0, 0];
+    : [19.43, -99.13];
 
   return (
     <AnimatePresence>
@@ -96,7 +107,7 @@ const LiveLocationMap = ({ open, onClose, myUserId, conversationId, groupId, con
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="fixed inset-0 z-[95] bg-background flex flex-col">
           <div className="px-4 py-3 flex items-center gap-3 border-b border-border glass-panel">
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><X size={20} /></button>
+            <button onClick={onClose} aria-label="Cerrar mapa" className="p-2 rounded-full bg-muted text-foreground hover:bg-muted/70"><X size={22} /></button>
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-foreground flex items-center gap-2">
                 <MapPin size={18} className="text-primary" /> Live location
@@ -113,14 +124,13 @@ const LiveLocationMap = ({ open, onClose, myUserId, conversationId, groupId, con
             )}
           </div>
           <div className="flex-1 relative">
-            {points.length === 0 ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 ember-bg">
-                <Navigation size={42} className="text-muted-foreground mb-3" />
-                <p className="font-semibold text-foreground">No live locations yet</p>
-                <p className="text-sm text-muted-foreground mt-1">Waiting for the first GPS ping…</p>
+            {points.length === 0 && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[500] px-3 py-1.5 rounded-full glass-panel-strong text-xs text-foreground flex items-center gap-1.5">
+                <Navigation size={12} className="text-primary" /> Buscando ubicaciones…
               </div>
-            ) : (
-              <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }}>
+            )}
+            {(
+              <MapContainer center={center} zoom={points.length ? 14 : 4} style={{ position: "absolute", inset: 0, height: "100%", width: "100%" }}>
                 <TileLayer
                   attribution='&copy; OpenStreetMap'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
