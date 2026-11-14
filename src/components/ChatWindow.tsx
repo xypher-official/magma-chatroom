@@ -54,6 +54,7 @@ interface ChatWindowProps {
   contactIsVerified?: boolean;
   contactIsOfficial?: boolean;
   contactUserId?: string;
+  conversationId?: string;
   messages: MessageRow[];
   myUserId: string;
   profiles: Record<string, Profile>;
