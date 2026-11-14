@@ -301,7 +301,7 @@ const Index = () => {
                     contactIsVerified={otherProfile.is_verified}
                     contactIsOfficial={otherProfile.is_official}
                     contactUserId={otherProfile.user_id}
-                    messages={messagesByConv[activeConv!] ?? []} myUserId={session.user.id} profiles={profiles}
+                    conversationId={activeConv ?? undefined} messages={messagesByConv[activeConv!] ?? []} myUserId={session.user.id} profiles={profiles}
                     readOnly={isSupportConv && !isAdmin}
                     canDeleteMessages={isAdmin}
                     onSendMessage={handleSendMessage}

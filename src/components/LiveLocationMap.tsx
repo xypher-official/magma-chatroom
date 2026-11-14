@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { X, MapPin, Navigation, Square } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import MapAutoFit from "./MapAutoFit";
 
 // Fix default marker icons (CDN) so they actually render in bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -124,6 +125,7 @@ const LiveLocationMap = ({ open, onClose, myUserId, conversationId, groupId, con
                   attribution='&copy; OpenStreetMap'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
+                <MapAutoFit points={points} />
                 {points.flatMap((p) => [
                   <Marker key={`m-${p.id}`} position={[p.lat, p.lng]} icon={p.isMe ? meIcon : themIcon}>
                     <Popup>

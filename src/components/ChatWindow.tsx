@@ -122,7 +122,7 @@ const ChatWindow = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const convId = messages[0]?.conversation_id;
+  const convId = (conversationId ?? messages[0]?.conversation_id);
   const myName = profiles[myUserId]?.display_name;
   const { typing, sendTyping } = useTyping(convId ? `dm-${convId}` : null, myUserId, myName);
 
@@ -159,7 +159,7 @@ const ChatWindow = ({
   };
   const clearChatForMe = async () => {
     if (!confirm("¿Vaciar este chat? Se eliminarán todos tus mensajes en él.")) return;
-    const convId = messages[0]?.conversation_id;
+    const convId = (conversationId ?? messages[0]?.conversation_id);
     if (!convId) return;
     const { error } = await supabase.from("messages").delete()
       .eq("conversation_id", convId).eq("sender_id", myUserId);
@@ -461,7 +461,7 @@ const ChatWindow = ({
         onClose={() => setShowLoc(false)}
         onStart={async (d) => {
           // Find conversation id from the messages prop (best effort)
-          const convId = messages[0]?.conversation_id;
+          const convId = (conversationId ?? messages[0]?.conversation_id);
           const id = await loc.start({ duration: d, conversationId: convId });
           if (id) {
             const myName = profiles[myUserId]?.display_name ?? "Someone";
@@ -486,9 +486,9 @@ const ChatWindow = ({
         onSend={() => { handleSend(); setShowExpanded(false); }}
         placeholder={t("chat.placeholder")} title={contactName} />
       <LiveLocationMap open={showMap} onClose={() => setShowMap(false)} myUserId={myUserId}
-        conversationId={messages[0]?.conversation_id} contactName={contactName}
+        conversationId={(conversationId ?? messages[0]?.conversation_id)} contactName={contactName}
         mySharing={loc.sharing} onStopMine={() => { loc.stop(); setShowMap(false); }} />
-      <AttachmentPicker conversationId={messages[0]?.conversation_id} open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
+      <AttachmentPicker conversationId={(conversationId ?? messages[0]?.conversation_id)} open={showAttach} onClose={() => setShowAttach(false)} myUserId={myUserId}
         onSend={(text, url, kind) => onSendMessage(text, url, kind)} />
     </div>
   );
