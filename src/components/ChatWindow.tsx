@@ -16,6 +16,7 @@ import LocationShareDialog from "./LocationShareDialog";
 import { useLocationShare } from "@/hooks/useLocationShare";
 import CallOptionsSheet from "./CallOptionsSheet";
 import LiveLocationMap from "./LiveLocationMap";
+import LocationMessageCard from "./LocationMessageCard";
 import ScheduleCallDialog from "./ScheduleCallDialog";
 import BlockedBanner from "./BlockedBanner";
 import { useBlocks } from "@/hooks/useBlocks";
@@ -321,6 +322,9 @@ const ChatWindow = ({
                   {!isDeleted && msg.media_url && msg.media_type?.startsWith("video") && (
                     <video src={msg.media_url} controls className="rounded-xl mb-1 max-h-72 w-full" />
                   )}
+                  {!isDeleted && msg.media_type === "location" && msg.media_url && (
+                    <LocationMessageCard url={msg.media_url} isOwn={isOwn} onOpen={() => setShowMap(true)} />
+                  )}
                   {!isDeleted && msg.media_type === "watch" && msg.media_url && (
                     <WatchInviteCard url={msg.media_url} isOwn={isOwn} />
                   )}
@@ -467,9 +471,7 @@ const ChatWindow = ({
           if (id) {
             const myName = profiles[myUserId]?.display_name ?? "Someone";
             const link = `${window.location.origin}/share/loc/${id}`;
-            onSendMessage(
-              `📍 ${myName} shared his location.\nVisit the link below to see ${myName}'s location:\n${link}`
-            );
+            onSendMessage(`📍 ${myName} shared their live location`, link, "location");
             setShowMap(true);
           }
           setShowLoc(false);
