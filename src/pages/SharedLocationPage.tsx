@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import LavaParticles from "@/components/LavaParticles";
 import { useLocationShare } from "@/hooks/useLocationShare";
+import MapAutoFit from "@/components/MapAutoFit";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -332,15 +333,14 @@ const SharedLocationPage = () => {
           <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }}>
             <TileLayer attribution='&copy; OpenStreetMap'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            {pings.map((p, i) => (
-              <div key={`${p.uid}-${i}`}>
-                <Marker position={[p.lat, p.lng]} icon={p.isMe ? meIcon : themIcon}>
-                  <Popup><strong>{p.isMe ? "Tú" : p.name}</strong></Popup>
-                </Marker>
-                {p.acc && <Circle center={[p.lat, p.lng]} radius={p.acc}
-                  pathOptions={{ color: p.isMe ? "#f97316" : "#3b82f6", fillOpacity: 0.08, weight: 1 }} />}
-              </div>
-            ))}
+            <MapAutoFit points={pings} />
+            {pings.flatMap((p, i) => [
+              <Marker key={`m-${p.uid}-${i}`} position={[p.lat, p.lng]} icon={p.isMe ? meIcon : themIcon}>
+                <Popup><strong>{p.isMe ? "Tú" : p.name}</strong></Popup>
+              </Marker>,
+              p.acc ? <Circle key={`c-${p.uid}-${i}`} center={[p.lat, p.lng]} radius={p.acc}
+                pathOptions={{ color: p.isMe ? "#f97316" : "#3b82f6", fillOpacity: 0.08, weight: 1 }} /> : null,
+            ])}
           </MapContainer>
         )}
       </div>

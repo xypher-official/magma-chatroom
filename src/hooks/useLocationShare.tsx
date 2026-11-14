@@ -49,6 +49,15 @@ export const useLocationShare = (myUserId?: string) => {
     if (error || !data) { toast.error(error?.message ?? "Share failed"); setSharing(false); return null; }
     setActiveShareId(data.id);
 
+    const sendPing = async (pos: GeolocationPosition) => {
+      try {
+        await supabase.from("location_pings").insert({
+          share_id: data.id, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy,
+        });
+      } catch (e) { console.warn(e); }
+    };
+    // Immediate first ping (low accuracy is fast), then continuous high-accuracy updates
+    navigator.geolocation.getCurrentPosition(sendPing, () => {}, { enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 });
     const id = navigator.geolocation.watchPosition(async (pos) => {
       try {
         await supabase.from("location_pings").insert({
