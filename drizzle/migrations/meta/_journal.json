@@ -50,6 +50,13 @@
       "when": 1794688165280,
       "tag": "0006_scope_reaction_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794688315287,
+      "tag": "0007_scope_social_reads",
+      "breakpoints": true
     }
   ]
 }
