@@ -27,7 +27,7 @@ const UserPickerDialog = ({ open, onClose, onPick, myUserId }: Props) => {
 
   useEffect(() => {
     if (!open) return;
-    supabase.from("profiles").select("*").eq("is_official", false)
+    supabase.from("profiles").select("id, user_id, username, display_name, avatar_initials, is_verified, is_banned, is_official, last_seen, created_at, updated_at, allow_dms, terms_accepted_at, avatar_url, language, email_verified_at, keyboard_enabled, keyboard_theme, bio, wallpaper_url, bubble_color").eq("is_official", false)
       .then(({ data }) => setProfiles((data as any) ?? []));
     supabase.from("important_users").select("user_id, priority")
       .then(({ data }) => {
