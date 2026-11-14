@@ -306,7 +306,7 @@ const SharedLocationPage = () => {
     : [0, 0];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex flex-col bg-background" style={{ height: "100dvh" }}>
       <div className="px-4 py-3 border-b border-border glass-panel flex items-center gap-3">
         <button onClick={() => navigate("/")} className="p-2 rounded-lg hover:bg-muted text-muted-foreground">
           <MapPin size={18} />
@@ -332,7 +332,7 @@ const SharedLocationPage = () => {
         ) : (
           <MapContainer center={center} zoom={14} style={{ height: "100%", width: "100%" }}>
             <TileLayer attribution='&copy; OpenStreetMap'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <MapAutoFit points={pings} />
             {pings.flatMap((p, i) => [
               <Marker key={`m-${p.uid}-${i}`} position={[p.lat, p.lng]} icon={p.isMe ? meIcon : themIcon}>
