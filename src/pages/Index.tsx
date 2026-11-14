@@ -109,7 +109,7 @@ const Index = () => {
   const loadMe = useCallback(async () => {
     if (!session) return;
     const [{ data: p }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("user_id", session.user.id).maybeSingle(),
+      supabase.from("profiles").select("id, user_id, username, display_name, avatar_initials, is_verified, is_banned, is_official, last_seen, created_at, updated_at, allow_dms, terms_accepted_at, avatar_url, language, email_verified_at, keyboard_enabled, keyboard_theme, bio, wallpaper_url, bubble_color").eq("user_id", session.user.id).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", session.user.id),
     ]);
     if (p) setMyProfile(p as Profile);
@@ -118,7 +118,7 @@ const Index = () => {
   useEffect(() => { loadMe(); }, [loadMe]);
 
   const loadProfiles = useCallback(async () => {
-    const { data } = await supabase.from("profiles").select("*");
+    const { data } = await supabase.from("profiles").select("id, user_id, username, display_name, avatar_initials, is_verified, is_banned, is_official, last_seen, created_at, updated_at, allow_dms, terms_accepted_at, avatar_url, language, email_verified_at, keyboard_enabled, keyboard_theme, bio, wallpaper_url, bubble_color");
     if (data) {
       const map: Record<string, Profile> = {};
       for (const p of data as Profile[]) map[p.user_id] = p;
