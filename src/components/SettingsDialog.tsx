@@ -39,8 +39,8 @@ const SettingsDialog = ({ onClose, myUserId, displayName, allowDms, avatarUrl, a
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("profiles")
-        .select("email, email_verified_at").eq("user_id", myUserId).maybeSingle();
+      const { data: rows } = await (supabase.rpc as any)("get_my_email");
+      const data = Array.isArray(rows) ? rows[0] : rows;
       if (data) {
         setEmailInput((data as any).email ?? "");
         setEmailVerified((data as any).email_verified_at ?? null);
